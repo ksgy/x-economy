@@ -85,8 +85,8 @@ class PythonInterface:
 	def XPluginStart(self):
 		self.Name = "X-Economy"
 		self.Sig =  "ksgy.Python.XFSEconomy"
-		self.Desc = "X-Economy - plugin for FSEconomy (www.fseconomy.com)"
-		self.VERSION="1.64"
+		self.Desc = "X-Economy - plugin for FSEconomy (www.fseconomy.net)"
+		self.VERSION="1.7"
 		self.MenuItem1 = 0
 		self.MenuItem2 = 0
 		self.flying = 0
@@ -324,19 +324,23 @@ class PythonInterface:
 
 	def disableGPS(self):
 		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gps"),6)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g_gps1"),6)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g_gps2"),6)
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gps2"),6)
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g430_gps1"),6)
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g430_gps2"),6)
+		
 
 	def disableAP(self):
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g_otto"),6)
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_auto_servos"),6)
 		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_otto"),6)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_fdir"),6)
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_servo_ailn"),6)
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_servo_elev"),6)
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_servo_rudd"),6)
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_servo_thro"),6)
+		
 
 	def disableIFR(self):
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g_gs1"),6)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g_gs2"),6)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g_navrad1"),6)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g_navrad2"),6)
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gps"),6)
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gps2"),6)
 		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gls"),6)
 		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_dme"),6)
 		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_adf1"),6)
@@ -347,21 +351,22 @@ class PythonInterface:
 
 	def enableAllInstruments(self):
 		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gps"),0)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g_gps1"),0)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g_gps2"),0)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g_otto"),0)
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gps2"),0)
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g430_gps1"),0)
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g430_gps2"),0)
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_auto_servos"),0)
 		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_otto"),0)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_fdir"),0)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g_gs1"),0)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g_gs2"),0)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g_navrad1"),0)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g_navrad2"),0)
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_servo_ailn"),0)
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_servo_elev"),0)
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_servo_rudd"),0)
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_servo_thro"),0)
 		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gls"),0)
 		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_dme"),0)
 		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_adf1"),0)
 		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_adf2"),0)
 		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_nav1"),0)
 		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_nav2"),0)
+		
 
 
 	def arrive(self):
@@ -475,6 +480,7 @@ class PythonInterface:
 			
 		print "Cancel flight1: " + message
 		print "Cancel flight2: " + message2
+		self.enableAllInstruments()
 
 
 	def addAssignment(self,aIndex,aFrom,aTo,aCargo):
