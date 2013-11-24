@@ -86,7 +86,7 @@ class PythonInterface:
 		self.Name = "X-Economy"
 		self.Sig =  "ksgy.Python.XFSEconomy"
 		self.Desc = "X-Economy - plugin for FSEconomy (www.fseconomy.net)"
-		self.VERSION="1.7"
+		self.VERSION="1.7.1"
 		self.MenuItem1 = 0
 		self.MenuItem2 = 0
 		self.flying = 0
@@ -187,7 +187,7 @@ class PythonInterface:
 		filemd5sum = hashlib.md5(f1.read()).hexdigest()
 		f1.close()
 
-		stuff = urlopen('http://www.x-plane.hu/x-economy/x-economy.php?md5sum='+filemd5sum+'&'+query).read()
+		stuff = urlopen('http://www.fseconomy.net/fsagentx?md5sum='+filemd5sum+'&'+query).read()
 		stuff = stuff.replace('&',' and ')
 		dom = minidom.parseString(stuff)
 		return dom
@@ -706,16 +706,25 @@ class PythonInterface:
 					
 				else:
 					print "Login was not successful"
-					
-					if(logincheck.getElementsByTagName('response')[0].firstChild.nodeName=="notok"):
-						XPSetWidgetDescriptor(self.ServerResponseCaption, "New version available, see below...")
-						XPSetWidgetDescriptor(self.ErrorCaption[0], "!!! New version is available: v"+str(logincheck.getElementsByTagName('notok')[0].firstChild.data))
-						XPSetWidgetProperty(self.UpdateButton, xpProperty_Enabled, 1)
-						print "New version avail"
+
+					if(logincheck.getElementsByTagName('response')[0].firstChild.nodeName=="error"):
+						XPSetWidgetDescriptor(self.ServerResponseCaption, "Error!")
+						XPSetWidgetDescriptor(self.ErrorCaption[0], logincheck.getElementsByTagName('error')[0].firstChild.data)
+						XPSetWidgetDescriptor(self.ErrorCaption[1], "")
+						XPSetWidgetDescriptor(self.ErrorCaption[2], "")
+						print "Invalid script"
 
 					else:
-						XPSetWidgetDescriptor(self.ServerResponseCaption, "Invalid account!")
-						print "Invalid account"
+					
+						if(logincheck.getElementsByTagName('response')[0].firstChild.nodeName=="notok"):
+							XPSetWidgetDescriptor(self.ServerResponseCaption, "New version available, see below...")
+							XPSetWidgetDescriptor(self.ErrorCaption[0], "!!! New version is available: v"+str(logincheck.getElementsByTagName('notok')[0].firstChild.data))
+							XPSetWidgetProperty(self.UpdateButton, xpProperty_Enabled, 1)
+							print "New version avail"
+
+						else:
+							XPSetWidgetDescriptor(self.ServerResponseCaption, "Invalid account!")
+							print "Invalid account"
 
 				#logincheck.unlink()
 				return 1
