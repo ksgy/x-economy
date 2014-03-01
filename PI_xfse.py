@@ -187,7 +187,7 @@ class PythonInterface:
 		filemd5sum = hashlib.md5(f1.read()).hexdigest()
 		f1.close()
 
-		stuff = urlopen('http://www.fseconomy.net/fsagentx?md5sum='+filemd5sum+'&'+query).read()
+		stuff = urlopen('http://www.fseconomy.net:81/fsagentx?md5sum='+filemd5sum+'&'+query).read()
 		stuff = stuff.replace('&',' and ')
 		dom = minidom.parseString(stuff)
 		return dom
