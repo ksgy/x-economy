@@ -86,7 +86,7 @@ class PythonInterface:
 		self.Name = "X-Economy"
 		self.Sig =  "ksgy.Python.XFSEconomy"
 		self.Desc = "X-Economy - plugin for FSEconomy (www.fseconomy.net)"
-		self.VERSION="1.7.1"
+		self.VERSION="1.7.2"
 		self.MenuItem1 = 0
 		self.MenuItem2 = 0
 		self.flying = 0
@@ -122,7 +122,26 @@ class PythonInterface:
 		self.KeyCB = self.KeyCallback
 		self.MouseClickCB = self.MouseClickCallback
 		self.WindowId = XPLMCreateWindow(self, 50, 600, 300, 400, 1, self.DrawWindowCB, self.KeyCB, self.MouseClickCB, 0)
+
+		#Teddii register CustomDataRef
+		#"fse/status/flying"    can be 0/1
+		#"fse/status/leasetime" is the remaining lease time
+		self.tempCB1 = self.CallbackDatarefFlying
+		self.drFlying = XPLMRegisterDataAccessor(self, "fse/status/flying", xplmType_Int, 0, self.tempCB1, None, None, None, None, None, None, None, None, None, None, None, 0, 0)
+		self.tempCB2 = self.CallbackDatarefLeasetime
+		self.drLeasetime= XPLMRegisterDataAccessor(self, "fse/status/leasetime", xplmType_Int, 0, self.tempCB2, None, None, None, None, None, None, None, None, None, None, None, 0, 0)
+		#
+		
 		return self.Name, self.Sig, self.Desc
+
+	#############################################################
+	#Teddii: Callback handler for reading custom datarefs
+	def CallbackDatarefFlying(self, inval):
+		return self.flying
+	def CallbackDatarefLeasetime(self, inval):
+		return self.leaseTime
+
+	#############################################################
 
 	def MouseClickCallback(self, inWindowID, x, y, inMouse, inRefcon):
 		return 0
@@ -150,6 +169,10 @@ class PythonInterface:
 		XPLMDestroyMenu(self, self.Id)
 		XPLMUnregisterFlightLoopCallback(self, self.checkACStateCB, 0)
 		XPLMDestroyWindow(self, self.WindowId)
+
+		XPLMUnregisterDataAccessor(self, self.drFlying)
+		XPLMUnregisterDataAccessor(self, self.drLeasetime)
+
 		pass
 
 
@@ -372,6 +395,7 @@ class PythonInterface:
 	def arrive(self):
 		print "Arrive()"
 		if self.Arrived==0:
+			self.flying=0 #Teddii: when arrived, flying shall be zero again
 			self.Arrived=1
 			if self.leaseTime>0:
 
