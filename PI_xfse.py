@@ -70,8 +70,9 @@ class engine:
 		if (mix > 95 and altitude > 1000):
 			self.mixtureDamage += sec
 
-	def getData(self):
-		return "&mixture"+str(self.engineNumber+1)+"="+str(self.mixtureDamage)+"&heat"+str(self.engineNumber+1)+"="+str(self.chtDamage)+"&time"+str(self.engineNumber+1)+"="+str(self.runtime)
+	def getData(self,flightTime):
+		#Teddii: using flightTime here instead of runtime as it's not time compression same and the values should be near to flightTime
+		return "&mixture"+str(self.engineNumber+1)+"="+str(self.mixtureDamage)+"&heat"+str(self.engineNumber+1)+"="+str(self.chtDamage)+"&time"+str(self.engineNumber+1)+"="+str(flightTime)
 
 	def isEngRun(self):
 		_engrun = []
@@ -86,12 +87,14 @@ class PythonInterface:
 		self.Name = "X-Economy"
 		self.Sig =  "ksgy.Python.XFSEconomy"
 		self.Desc = "X-Economy - plugin for FSEconomy (www.fseconomy.net)"
-		self.VERSION="1.7.2"
+		self.VERSION="1.7.2(3)+1"
 		self.MenuItem1 = 0
 		self.MenuItem2 = 0
 		self.flying = 0
+		self.flightStart = 0
 		self.flightTime = 0
 		self.rentalTick = 0
+		self.leaseStart = 0
 		self.leaseTime = 0
 		self.errormessage = 10
 		self.CurrentTimeCaption=""
@@ -109,9 +112,9 @@ class PythonInterface:
 		self.err1=""
 		self.err2=""
 		self.ACEngine=[]
-		Item = XPLMAppendMenuItem(XPLMFindPluginsMenu(), "X-Economy", 0, 1)
+		Item = XPLMAppendMenuItem(XPLMFindPluginsMenu(), "[--- X-Economy ---]", 0, 1)
 		self.XFSEMenuHandlerCB = self.XFSEMenuHandler
-		self.Id = XPLMCreateMenu(self, "X-Economy" , XPLMFindPluginsMenu(), Item, self.XFSEMenuHandlerCB,	0)
+		self.Id = XPLMCreateMenu(self, "[--- X-Economy ---]" , XPLMFindPluginsMenu(), Item, self.XFSEMenuHandlerCB,	0)
 		XPLMAppendMenuItem(self.Id, "Open X-Economy", 1, 1)
 		XPLMAppendMenuItem(self.Id, "-", 3, 1)
 		XPLMAppendMenuItem(self.Id, "Set aircraft alias", 2, 1)
@@ -124,12 +127,15 @@ class PythonInterface:
 		self.WindowId = XPLMCreateWindow(self, 50, 600, 300, 400, 1, self.DrawWindowCB, self.KeyCB, self.MouseClickCB, 0)
 
 		#Teddii register CustomDataRef
-		#"fse/status/flying"    can be 0/1
-		#"fse/status/leasetime" is the remaining lease time
+		#"fse/status/flying"     can be 0/1
+		#"fse/status/leasetime"  is the remaining lease time
+		#"fse/status/flighttime" is the current flight time
 		self.tempCB1 = self.CallbackDatarefFlying
 		self.drFlying = XPLMRegisterDataAccessor(self, "fse/status/flying", xplmType_Int, 0, self.tempCB1, None, None, None, None, None, None, None, None, None, None, None, 0, 0)
 		self.tempCB2 = self.CallbackDatarefLeasetime
 		self.drLeasetime= XPLMRegisterDataAccessor(self, "fse/status/leasetime", xplmType_Int, 0, self.tempCB2, None, None, None, None, None, None, None, None, None, None, None, 0, 0)
+		self.tempCB3 = self.CallbackDatarefFlighttime
+		self.drFlighttime= XPLMRegisterDataAccessor(self, "fse/status/flighttime", xplmType_Int, 0, self.tempCB3, None, None, None, None, None, None, None, None, None, None, None, 0, 0)
 		#
 		
 		return self.Name, self.Sig, self.Desc
@@ -140,6 +146,8 @@ class PythonInterface:
 		return self.flying
 	def CallbackDatarefLeasetime(self, inval):
 		return self.leaseTime
+	def CallbackDatarefFlighttime(self, inval):
+		return self.flightTime
 
 	#############################################################
 
@@ -172,6 +180,7 @@ class PythonInterface:
 
 		XPLMUnregisterDataAccessor(self, self.drFlying)
 		XPLMUnregisterDataAccessor(self, self.drLeasetime)
+		XPLMUnregisterDataAccessor(self, self.drFlighttime)
 
 		pass
 
@@ -208,9 +217,12 @@ class PythonInterface:
 	def XFSEpost(self, query):
 		f1 = open(os.path.join('Resources','plugins','PythonScripts','PI_xfse.py'), 'rb')
 		filemd5sum = hashlib.md5(f1.read()).hexdigest()
+		filemd5sum = "fee2295387604ee1c568c168aaefe0fb";
 		f1.close()
 
-		stuff = urlopen('http://www.fseconomy.net:81/fsagentx?md5sum='+filemd5sum+'&'+query).read()
+		URL = 'http://www.fseconomy.net:81/fsagentx?md5sum='+filemd5sum+'&'+query;
+		print('Calling URL: '+URL)
+		stuff = urlopen(URL).read()
 		stuff = stuff.replace('&',' and ')
 		dom = minidom.parseString(stuff)
 		return dom
@@ -279,7 +291,7 @@ class PythonInterface:
 				
 				# lease time calc
 				if self.leaseTime>0: 
-					self.leaseTime=int(self.leaseTime)-1
+					self.leaseTime=int(self.leaseStart-self.flightTime)
 				if self.LeaseCaption:
 					_leasehours=self.leaseTime/3600
 					_leasemins=(self.leaseTime-_leasehours*3600)/60
@@ -289,7 +301,10 @@ class PythonInterface:
 					
 				if(self.chkBrk(isHeli,isBrake) and self.ACEngine[0].currentRPM()>float(10.0) and airspeed>float(5) and self.ACEngine[0].planeALT()>10):
 
-					self.flightTime=int(self.flightTime)+1
+					#Teddii	self.flightTime=int(self.flightTime)+1
+					#replaced to this to make flightTime time compression safe
+					self.flightTime=int( XPLMGetDataf(XPLMFindDataRef("sim/time/total_flight_time_sec")) - self.flightStart )
+
 					if self.CurrentTimeCaption:
 						_currhours=self.flightTime/3600
 						_currmins=(self.flightTime-_currhours*3600)/60
@@ -300,17 +315,27 @@ class PythonInterface:
 						self.ACEngine[iengfeed].feed(1,self.ACEngine[iengfeed].currentRPM(),self.ACEngine[iengfeed].currentMIX(),self.ACEngine[iengfeed].currentCHT(),self.ACEngine[iengfeed].planeALT())
 
 				# arrive
-				else:
+				#else:
+				#	if isHeli == 1:
+				#		if(self.flightTime>60 and self.isAllEngineStopped() and self.ACEngine[0].planeALT()<50 and airspeed<float(5)):
+				#			print "Heli arrived"
+				#			self.arrive()
+				#	else:
+				#		if(self.flightTime>60 and self.isAllEngineStopped() and self.ACEngine[0].planeALT()<50 and isBrake==1.0 and airspeed<float(30)):
+				#			print "Plane arrived"
+				#			self.arrive()
+				elif(self.flightTime>60 and self.isAllEngineStopped() and self.ACEngine[0].planeALT()<50):
 					if isHeli == 1:
-						if(self.flightTime>60 and self.isAllEngineStopped() and self.ACEngine[0].planeALT()<50 and airspeed<float(5)):
+						if(airspeed<float(5)):
 							print "Heli arrived"
 							self.arrive()
 					else:
-						if(self.flightTime>60 and self.isAllEngineStopped() and self.ACEngine[0].planeALT()<50 and isBrake==1.0 and airspeed<float(30)):
+						 if(isBrake==1.0 and airspeed<float(30)):
 							print "Plane arrived"
 							self.arrive()
-							
-					
+				else: #Teddii: not flying and not stopped - reset the flightStart, so EngineWarmUpTime is not counted
+					self.flightStart = int( XPLMGetDataf(XPLMFindDataRef("sim/time/total_flight_time_sec")) ) 							
+										
 
 				if self.isTacho==1:
 					self.rentalTick+=(self.ACEngine[0].currentRPM()/float(3600.0))
@@ -446,7 +471,7 @@ class PythonInterface:
 
 				_engineStr=""
 				for _ieng in range(self.NumberOfEngines):
-					_engineStr=_engineStr+str(self.ACEngine[_ieng].getData())
+					_engineStr=_engineStr+str(self.ACEngine[_ieng].getData(self.flightTime))
 					
 				print "Engine conditions: "+_engineStr
 
@@ -482,6 +507,7 @@ class PythonInterface:
 				
 			print "Flight time reset. Enabling all instruments"
 			
+			self.flightStart=0
 			self.flightTime=0
 			self.enableAllInstruments()
 			
@@ -850,6 +876,7 @@ class PythonInterface:
 						XPSetWidgetDescriptor(self.ACRegCaption, "Aircraft registration: "+str(stACReg)+str(stEquipment))
 						self.leaseTime = 0
 						self.leaseTime=int(stLE)
+						self.leaseStart=int(stLE)
 						XPSetWidgetDescriptor(self.LeaseCaption, "Lease time: "+str(int(stLE)/3600)+" hours")
 
 						# set weight and fuel
@@ -884,6 +911,7 @@ class PythonInterface:
 						XPSetWidgetProperty(self.CancelFlyButton, xpProperty_Enabled, 1)
 
 						self.Arrived=0
+						self.flightStart = int( XPLMGetDataf(XPLMFindDataRef("sim/time/total_flight_time_sec")) )
 						self.flightTime = 0
 						self.flying=1 # start flight query
 						self.rentalTick = 0
@@ -985,4 +1013,4 @@ class PythonInterface:
 		# callback
 		self.ACAliasWidgetCB = self.ACAliasWidget_cb
 		XPAddWidgetCallback(self, self.ACAliasWidget, self.ACAliasWidgetCB)
-	# end of addition
+	# end of addition 
