@@ -87,7 +87,7 @@ class PythonInterface:
 		self.Name = "X-Economy"
 		self.Sig =  "ksgy.Python.XFSEconomy"
 		self.Desc = "X-Economy - plugin for FSEconomy (www.fseconomy.net)"
-		self.VERSION="1.7.2(3)+1"
+		self.VERSION="1.7.3"
 		self.MenuItem1 = 0
 		self.MenuItem2 = 0
 		self.flying = 0
@@ -217,7 +217,6 @@ class PythonInterface:
 	def XFSEpost(self, query):
 		f1 = open(os.path.join('Resources','plugins','PythonScripts','PI_xfse.py'), 'rb')
 		filemd5sum = hashlib.md5(f1.read()).hexdigest()
-		filemd5sum = "fee2295387604ee1c568c168aaefe0fb";
 		f1.close()
 
 		URL = 'http://www.fseconomy.net:81/fsagentx?md5sum='+filemd5sum+'&'+query;
