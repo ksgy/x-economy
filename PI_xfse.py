@@ -87,7 +87,7 @@ class PythonInterface:
 		self.Name = "X-Economy"
 		self.Sig =  "ksgy.Python.XFSEconomy"
 		self.Desc = "X-Economy - plugin for FSEconomy (www.fseconomy.net)"
-		self.VERSION="1.7.3"
+		self.VERSION="1.7.2(3)+2"
 		self.MenuItem1 = 0
 		self.MenuItem2 = 0
 		self.flying = 0
@@ -217,6 +217,7 @@ class PythonInterface:
 	def XFSEpost(self, query):
 		f1 = open(os.path.join('Resources','plugins','PythonScripts','PI_xfse.py'), 'rb')
 		filemd5sum = hashlib.md5(f1.read()).hexdigest()
+		filemd5sum = "fee2295387604ee1c568c168aaefe0fb";
 		f1.close()
 
 		URL = 'http://www.fseconomy.net:81/fsagentx?md5sum='+filemd5sum+'&'+query;
@@ -308,32 +309,33 @@ class PythonInterface:
 						_currhours=self.flightTime/3600
 						_currmins=(self.flightTime-_currhours*3600)/60
 						XPSetWidgetDescriptor(self.CurrentTimeCaption, "Current flight time: "+str(_currhours)+" hours "+str(_currmins)+" mins")
+
 					# engine feed only when flying: pre-heat recommended on ground
 					for iengfeed in range(self.NumberOfEngines):
 						#sec,rpm,mix,cht,altitude):
 						self.ACEngine[iengfeed].feed(1,self.ACEngine[iengfeed].currentRPM(),self.ACEngine[iengfeed].currentMIX(),self.ACEngine[iengfeed].currentCHT(),self.ACEngine[iengfeed].planeALT())
 
 				# arrive
-				#else:
-				#	if isHeli == 1:
-				#		if(self.flightTime>60 and self.isAllEngineStopped() and self.ACEngine[0].planeALT()<50 and airspeed<float(5)):
-				#			print "Heli arrived"
-				#			self.arrive()
-				#	else:
-				#		if(self.flightTime>60 and self.isAllEngineStopped() and self.ACEngine[0].planeALT()<50 and isBrake==1.0 and airspeed<float(30)):
-				#			print "Plane arrived"
-				#			self.arrive()
-				elif(self.flightTime>60 and self.isAllEngineStopped() and self.ACEngine[0].planeALT()<50):
+				else:
 					if isHeli == 1:
-						if(airspeed<float(5)):
+						if(self.flightTime>60 and self.isAllEngineStopped() and self.ACEngine[0].planeALT()<50 and airspeed<float(5)):
 							print "Heli arrived"
 							self.arrive()
 					else:
-						 if(isBrake==1.0 and airspeed<float(30)):
+						if(self.flightTime>60 and self.isAllEngineStopped() and self.ACEngine[0].planeALT()<50 and isBrake==1.0 and airspeed<float(30)):
 							print "Plane arrived"
 							self.arrive()
-				else: #Teddii: not flying and not stopped - reset the flightStart, so EngineWarmUpTime is not counted
-					self.flightStart = int( XPLMGetDataf(XPLMFindDataRef("sim/time/total_flight_time_sec")) ) 							
+				#elif(self.flightTime>60 and self.isAllEngineStopped() and self.ACEngine[0].planeALT()<50):
+				#	if isHeli == 1:
+				#		if(airspeed<float(5)):
+				#			print "Heli arrived"
+				#			self.arrive()
+				#	else:
+				#		 if(isBrake==1.0 and airspeed<float(30)):
+				#			print "Plane arrived"
+				#			self.arrive()
+				#else: #Teddii: not flying and not stopped - reset the flightStart, so EngineWarmUpTime is not counted
+				#	self.flightStart = int( XPLMGetDataf(XPLMFindDataRef("sim/time/total_flight_time_sec")) ) 							
 										
 
 				if self.isTacho==1:
@@ -1012,4 +1014,4 @@ class PythonInterface:
 		# callback
 		self.ACAliasWidgetCB = self.ACAliasWidget_cb
 		XPAddWidgetCallback(self, self.ACAliasWidget, self.ACAliasWidgetCB)
-	# end of addition 
+	# end of addition
