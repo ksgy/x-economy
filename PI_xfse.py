@@ -87,13 +87,14 @@ class PythonInterface:
 		self.Name = "X-Economy"
 		self.Sig =  "ksgy.Python.XFSEconomy"
 		self.Desc = "X-Economy - plugin for FSEconomy (www.fseconomy.net)"
-		self.VERSION="1.8.0 (RC4)"
+		self.VERSION="1.8.0 (RC5)"
 		self.MenuItem1 = 0
 		self.MenuItem2 = 0
 		self.cancelCmdFlag = 0
 		self.flying = 0
 		self.flightStart = 0
 		self.flightTime = 0
+		self.Transmitting = 0
 		self.flightTimer = 0
 		self.flightTimerLast = 0
 		self.leaseStart = 0
@@ -653,6 +654,8 @@ class PythonInterface:
 
 			if(self.chkBrk(isHeli,isBrake) and self.ACEngine[0].currentRPM()>float(10.0) and airspeed>float(5) and self.ACEngine[0].planeALT()>10):
 
+				self.Transmitting = 0
+				
 				if self.CurrentTimeCaption:
 					_currhours=self.flightTime/3600
 					_currmins=(self.flightTime-_currhours*3600)/60
@@ -673,7 +676,6 @@ class PythonInterface:
 					if(self.flightTime>60 and self.isAllEngineStopped() and self.ACEngine[0].planeALT()<50 and isBrake==1.0 and airspeed<float(30)):
 						print "[Nfo] Plane arrived"
 						self.arrive()
-									
 
 			if(self.stEq=="0"):
 				self.disableAP()
@@ -838,7 +840,7 @@ class PythonInterface:
 
 					self.checkfuel=XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel_total"))
 
-					_fuelTotalGal=int(XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel_total")) * 0.3721)
+					_fuelTotalGal=int((XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel_total")) * 0.3721)+0.5)
 					
 					XPSetWidgetProperty(self.StartFlyButton, xpProperty_Enabled, 0)
 					XPSetWidgetProperty(self.CancelFlyButton, xpProperty_Enabled, 1)
@@ -850,6 +852,8 @@ class PythonInterface:
 					self.flying=1 # start flight query
 					self.gsCheat = 0
 
+					XPSetWidgetDescriptor(self.ServerResponseCaption, "")
+					
 					message=str(_assignments)+" assignments loaded. "+str(_fuelTotalGal)+" gallons of fuel onboard."
 					message2="Flight started. Enjoy!"
 					XPSetWidgetDescriptor(self.ErrorCaption[0], message)
@@ -871,6 +875,9 @@ class PythonInterface:
 			if self.leaseTime>0:
 
 				print "[Nfo] Flight has arrived"
+
+				self.Transmitting=self.Transmitting+1
+				XPSetWidgetDescriptor(self.ServerResponseCaption, "XMIT, Try "+str(self.Transmitting)+" ...")
 				
 				_PlaneLatdr = XPLMFindDataRef("sim/flightmodel/position/latitude")
 				_PlaneLondr = XPLMFindDataRef("sim/flightmodel/position/longitude")
@@ -942,7 +949,7 @@ class PythonInterface:
 					self.Arrived=1
 
 					print "[Nfo] Your flight has been logged to the server"
-					_fuelTotalGal=int(XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel_total")) * 0.3721)
+					_fuelTotalGal=int((XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel_total")) * 0.3721)+0.5)
 					message=str(_fuelTotalGal)+" gallons of fuel onboard."
 					message2="Flight successfully logged to the server."
 					XPSetWidgetDescriptor(self.ErrorCaption[0], message)
@@ -955,8 +962,11 @@ class PythonInterface:
 					self.flightStart=0
 					self.flightTime=0
 					self.enableAllInstruments()
+
+					XPSetWidgetDescriptor(self.ServerResponseCaption, "XMIT, Try "+str(self.Transmitting)+" ... OK")
 				else:
 					print "[WRN] Flight logging NOT complete. Check your internet connection to the FSE-Server and try again."
+					
 			else:
 				print "[Nfo] Lease time has ended, cancelling flight"
 				self.cancelFlight("Lease time has ended. Your flight has been cancelled. Sorry, you will have to re-fly this trip","")
