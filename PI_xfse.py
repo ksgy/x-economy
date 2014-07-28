@@ -87,11 +87,10 @@ class PythonInterface:
 		self.Name = "X-Economy"
 		self.Sig =  "ksgy.Python.XFSEconomy"
 		self.Desc = "X-Economy - plugin for FSEconomy (www.fseconomy.net)"
-		self.VERSION="1.8.0 (RC3)"
+		self.VERSION="1.8.0 (RC4)"
 		self.MenuItem1 = 0
 		self.MenuItem2 = 0
 		self.cancelCmdFlag = 0
-		self.LastUrl =""
 		self.flying = 0
 		self.flightStart = 0
 		self.flightTime = 0
@@ -396,13 +395,6 @@ class PythonInterface:
 		XPSetWidgetProperty(self.CancelFlyButton, xpProperty_ButtonType, xpPushButton)
 		XPSetWidgetProperty(self.CancelFlyButton, xpProperty_Enabled, 0)
 
-		# Teddii: Resend button
-		self.ResendButton = XPCreateWidget(x+280, y-60, x+355, y-80,
-						      1, "EMGY ReSnd", 0, self.XFSEWidget,
-						      xpWidgetClass_Button)
-		XPSetWidgetProperty(self.ResendButton, xpProperty_ButtonType, xpPushButton)
-		XPSetWidgetProperty(self.ResendButton, xpProperty_Enabled, 0)
-
 		# Register our widget handler
 		self.XFSEHandlerCB = self.XFSEHandler
 		XPAddWidgetCallback(self, self.XFSEWidget, self.XFSEHandlerCB)
@@ -439,9 +431,6 @@ class PythonInterface:
 			elif (inParam1 == self.CancelFlyButton):
 				print "[Nfo] BTN canel flight"
 				self.cancelFlight("Flight cancelled","")
-			elif (inParam1 == self.ResendButton):
-				print "[Nfo] BTN ReSend"
-				self.reSend()
 			elif (inParam1 == self.UpdateButton):
 				self.doUpdate()
 			else:
@@ -773,8 +762,6 @@ class PythonInterface:
 				self.err2=""
 
 				startFlight=self.XFSEpost("user="+self.userstr+"&pass="+self.passstr+"&action=startFlight&lat="+str(Lat)+"&lon="+str(Lon)+"&aircraft="+self.CurrentAircraft.replace(' ','%20'))
-				self.LastUrl=""
-				XPSetWidgetProperty(self.ResendButton, xpProperty_Enabled, 0)
 				
 				if startFlight.getElementsByTagName('response')[0].firstChild.nodeName=="error":
 					XPSetWidgetDescriptor(self.ErrorCaption[0], startFlight.getElementsByTagName('error')[0].firstChild.data)
@@ -863,7 +850,7 @@ class PythonInterface:
 					self.flying=1 # start flight query
 					self.gsCheat = 0
 
-					message=str(_assignments)+" assignments loaded. "+str(_fuelTotalGal)+" gal fuel onboard."
+					message=str(_assignments)+" assignments loaded. "+str(_fuelTotalGal)+" gallons of fuel onboard."
 					message2="Flight started. Enjoy!"
 					XPSetWidgetDescriptor(self.ErrorCaption[0], message)
 					XPSetWidgetDescriptor(self.ErrorCaption[1], message2)
@@ -881,8 +868,6 @@ class PythonInterface:
 	def arrive(self):
 		print "[dbg] Arrive()"
 		if self.Arrived==0:
-			self.flying=0
-			self.Arrived=1
 			if self.leaseTime>0:
 
 				print "[Nfo] Flight has arrived"
@@ -933,12 +918,10 @@ class PythonInterface:
 					
 				print "[Nfo] Engine conditions: "+_engineStr
 
-				self.LastUrl="user="+self.userstr+"&pass="+self.passstr+"&action=arrive&rentalTime="+str(self.flightTime)+"&lat="+str(_lat)+"&lon="+str(_lon)+"&c="+str(_c)+"&lm="+str(_lm)+"&la="+str(_la)+"&let="+str(_let)+"&rm="+str(_rm)+"&ra="+str(_ra)+"&rt="+str(_rt)+"&c2="+str(_c2)+"&c3="+str(_c3)+"&x1="+str(_x1)+"&x2="+str(_x2)+_engineStr
-				XPSetWidgetProperty(self.ResendButton, xpProperty_Enabled, 1)
-				_finishflight=self.XFSEpost(self.LastUrl)
-
-				print "[Nfo] Your flight has been logged to the server"
+				print "[Nfo] Sending flight to the server ..."
 				
+				_finishflight=self.XFSEpost("user="+self.userstr+"&pass="+self.passstr+"&action=arrive&rentalTime="+str(self.flightTime)+"&lat="+str(_lat)+"&lon="+str(_lon)+"&c="+str(_c)+"&lm="+str(_lm)+"&la="+str(_la)+"&let="+str(_let)+"&rm="+str(_rm)+"&ra="+str(_ra)+"&rt="+str(_rt)+"&c2="+str(_c2)+"&c3="+str(_c3)+"&x1="+str(_x1)+"&x2="+str(_x2)+_engineStr)
+
 				if len(_finishflight.getElementsByTagName('result'))>0:
 					_err=_finishflight.getElementsByTagName('result')[0].firstChild.data
 					_errA=_err.split('|')
@@ -951,22 +934,33 @@ class PythonInterface:
 						else:
 							XPSetWidgetDescriptor(self.ErrorCaption[ierr], _errA[ierr])
 
+					#if server communication fails we won't get here
+					#so we should be able to log the flight again
 					XPSetWidgetProperty(self.StartFlyButton, xpProperty_Enabled, 1)
 					XPSetWidgetProperty(self.CancelFlyButton, xpProperty_Enabled, 0)
-					
-				print "[Nfo] Flight logging complete. Ready for the next flight"
+					self.flying=0
+					self.Arrived=1
+
+					print "[Nfo] Your flight has been logged to the server"
+					_fuelTotalGal=int(XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel_total")) * 0.3721)
+					message=str(_fuelTotalGal)+" gallons of fuel onboard."
+					message2="Flight successfully logged to the server."
+					XPSetWidgetDescriptor(self.ErrorCaption[0], message)
+					XPSetWidgetDescriptor(self.ErrorCaption[1], message2)
+					self.err1 = message
+					self.err2 = message2
+					self.errormessage = 10
+
+					print "[dbg] Flight time reset. All instruments enabled"
+					self.flightStart=0
+					self.flightTime=0
+					self.enableAllInstruments()
+				else:
+					print "[WRN] Flight logging NOT complete. Check your internet connection to the FSE-Server and try again."
 			else:
 				print "[Nfo] Lease time has ended, cancelling flight"
 				self.cancelFlight("Lease time has ended. Your flight has been cancelled. Sorry, you will have to re-fly this trip","")
 				
-			print "[dbg] Flight time reset. Enabling all instruments"
-			
-			self.flightStart=0
-			self.flightTime=0
-			self.enableAllInstruments()
-			
-			print "[dbg] Flight time reset. All instruments enabled"
-			
 	#############################################################
 	## Flight cancal function
 	def cancelFlight(self,message,message2):
@@ -989,12 +983,6 @@ class PythonInterface:
 			print "[dbg] Cancel flight1: " + message
 			print "[dbg] Cancel flight2: " + message2
 			self.enableAllInstruments()
-
-	#############################################################
-	## ReSend function
-	def reSend(self):
-		print "[dbg] reSend function"
-		self.XFSEpost(self.LastUrl)
 
 	#############################################################
 	## login function
