@@ -87,23 +87,26 @@ class PythonInterface:
 		self.Name = "X-Economy"
 		self.Sig =  "ksgy.Python.XFSEconomy"
 		self.Desc = "X-Economy - plugin for FSEconomy (www.fseconomy.net)"
-		self.VERSION="1.8.0 (RC5)"
-		self.MenuItem1 = 0
-		self.MenuItem2 = 0
-		self.cancelCmdFlag = 0
-		self.flying = 0
-		self.flightStart = 0
-		self.flightTime = 0
-		self.Transmitting = 0
-		self.flightTimer = 0
-		self.flightTimerLast = 0
-		self.leaseStart = 0
-		self.leaseTime = 0
-		self.errormessage = 10
+		self.VERSION="1.8.0 (RC6)"
+		self.MenuItem1 = 0			#Flag if main window has already been created
+		self.MenuItem2 = 0			#Flag if alias window has already been created
+		self.cancelCmdFlag = 0		#Flag if "cancelArm" Command has been called
+
+		self.flightTimer = 0		#X-Plane's one second Ticker
+		self.flightTimerLast = 0	#last value of flightTimer to recognize a "flightTimer"-Reset
+		
+		self.flying = 0				#Flag if a Flight was started
+		self.flightStart = 0		#Time when the Flight was started
+		self.flightTime = 0			#Time that we are flying
+		self.Arrived = 0			#Flag that we have arrived and need to transmit the data now
+		self.Transmitting = 0		#Counter for Transmit-Retries
+		self.leaseStart = 0			#Maximum lease time allowed to this rent
+		self.leaseTime = 0			#Actual lease time (time left)
+		self.errormessage = 10		#Timeout that the GlassWindow-Messages will be shown
 		self.CurrentTimeCaption=""
 		self.LeaseCaption = 0
-		self.Arrived = 0
-		self.CurrentAircraft=""
+		self.CurrentAircraft=""		#Name of the current aircraft
+
 		self.FuelTanks=[]
 		self.stPayload=0
 		self.stEq=0

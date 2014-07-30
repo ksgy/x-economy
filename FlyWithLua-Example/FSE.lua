@@ -1,7 +1,7 @@
 --________________________________________________________--
 -- FlyWithLua AddOn-Script for FS-Economy/X-Economy
 -- This file has to be put into the Folder X-Plane/Resources/Plugins/FlyWithLua/Scripts
--- Teddii / 2014-07-03
+-- Teddii / 2014-07-30
 -- This script will show the actual state of FSE (see attached images),
 -- so you should never forget to fly without starting the flight in FSE again :-)
 --
@@ -12,10 +12,21 @@
 -- FlyWithLua can be downloaded from: http://forums.x-plane.org/index.php?app=downloads&showfile=17468
 -- User Support via X-Plane.org Forum: http://forums.x-plane.org/index.php?showforum=188
 --________________________________________________________--
+--History:
+--
+--Version 1.0 2014-07-03 Teddii
+--	release
+--
+--Version 1.1 2014-07-30 Teddii
+--	Changed text to ground/airborn 
+--	FlightTime/LeaseTime are now shown in hours:min[:secs]
+--________________________________________________________--
 
 -- set the screen position for text messages
 xPos = 50
 yPos = SCREEN_HIGHT-50
+--________________________________________________________--
+--________________________________________________________--
 --________________________________________________________--
 
 ColorTicker=0
@@ -28,18 +39,23 @@ do_every_draw([[
 -- Import custom datarefs from X-Economy script
 DataRef("fse_flying", "fse/status/flying")
 DataRef("fse_leasetime", "fse/status/leasetime")
+DataRef("fse_flighttime", "fse/status/flighttime")
 --________________________________________________________--
 
 function fse_info()
+	flightTimeString=string.format("%02i:%02i:%02i",math.floor(fse_flighttime/3600),math.floor((fse_flighttime%3600)/60),(fse_flighttime%60))
+	leaseTimeString=string.format("%02i:%02i",math.floor(fse_leasetime/3600),math.floor((fse_leasetime%3600)/60))
+
+
 	if(fse_flying) then
 		if(fse_flying == 0) then
 			if(ColorTicker%2==0) then
-				draw_string(xPos, yPos, "FSE: NOT FLYING", "yellow")
+				draw_string(xPos, yPos, "FSE: on ground", "yellow")
 			else
-				draw_string(xPos, yPos, "FSE: NOT FLYING", "blue")
+				draw_string(xPos, yPos, "FSE: on ground", "blue")
 			end
 		elseif(fse_flying == 1) then
-			draw_string(xPos, yPos, "FSE: FLYING ("..(math.floor(fse_leasetime/360)/10).."hrs left)", "white")
+			draw_string(xPos, yPos, "FSE: airborne "..flightTimeString.." ("..leaseTimeString.." left)", "white")
 		else
 			draw_string(xPos, yPos, "FSE: ERROR "..fse_flying, "red") -- never happens - just in case ...
 		end
