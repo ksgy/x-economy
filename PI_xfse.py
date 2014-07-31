@@ -87,7 +87,7 @@ class PythonInterface:
 		self.Name = "X-Economy"
 		self.Sig =  "ksgy.Python.XFSEconomy"
 		self.Desc = "X-Economy - plugin for FSEconomy (www.fseconomy.net)"
-		self.VERSION="1.8.0 (RC6)"
+		self.VERSION="1.8.0 (RC7)"
 		self.MenuItem1 = 0			#Flag if main window has already been created
 		self.MenuItem2 = 0			#Flag if alias window has already been created
 		self.cancelCmdFlag = 0		#Flag if "cancelArm" Command has been called
@@ -367,9 +367,9 @@ class PythonInterface:
 		self.ErrorCaption=[]
 		self.ErrorCaption.append(XPCreateWidget(x+20, y-410, x+50, y-430,1, "", 0, self.XFSEWidget,xpWidgetClass_Caption))
 		# Error2 text
-		self.ErrorCaption.append(XPCreateWidget(x+20, y-420, x+50, y-440,1, "", 0, self.XFSEWidget,xpWidgetClass_Caption))
+		self.ErrorCaption.append(XPCreateWidget(x+20, y-425, x+50, y-445,1, "", 0, self.XFSEWidget,xpWidgetClass_Caption))
 		# Error3 text
-		self.ErrorCaption.append(XPCreateWidget(x+20, y-430, x+50, y-450,1, "", 0, self.XFSEWidget,xpWidgetClass_Caption))
+		self.ErrorCaption.append(XPCreateWidget(x+20, y-440, x+50, y-460,1, "", 0, self.XFSEWidget,xpWidgetClass_Caption))
 
 		# From/To/Cargo
 		self.FromCaption=[]
@@ -407,7 +407,8 @@ class PythonInterface:
 		self.XFSEScrollbar = XPCreateWidget(x+445, y-130, x2-10, y2+150, 1, "", 0,	self.XFSEWidget, xpWidgetClass_ScrollBar)
 		XPSetWidgetProperty(self.XFSEScrollbar,xpProperty_ScrollBarMin, 0)
 
-		self.UpdateButton = XPCreateWidget(x+370, y-410, x+450, y-430,1, "Update client", 0, self.XFSEWidget,xpWidgetClass_Button)
+		#update button
+		self.UpdateButton = XPCreateWidget(x+270, y-40, x+350, y-60,1, "Update", 0, self.XFSEWidget,xpWidgetClass_Button)
 		XPSetWidgetProperty(self.UpdateButton, xpProperty_ButtonType, xpPushButton)
 		XPSetWidgetProperty(self.UpdateButton, xpProperty_Enabled, 0)
 
@@ -647,6 +648,11 @@ class PythonInterface:
 			# flightTime calc
 			self.flightTime=int( self.flightTimer - self.flightStart )
 			
+			if self.CurrentTimeCaption:
+				_currhours=self.flightTime/3600
+				_currmins=(self.flightTime-_currhours*3600)/60
+				XPSetWidgetDescriptor(self.CurrentTimeCaption, "Current flight time: "+str(_currhours)+" hours "+str(_currmins)+" mins")
+
 			# lease time calc
 			if self.leaseTime>0: 
 				self.leaseTime=int(self.leaseStart-self.flightTime)
@@ -654,16 +660,11 @@ class PythonInterface:
 				_leasehours=self.leaseTime/3600
 				_leasemins=(self.leaseTime-_leasehours*3600)/60
 				XPSetWidgetDescriptor(self.LeaseCaption, "Lease time left: "+str(_leasehours)+" hours "+str(_leasemins)+" mins" )
-
+				
 			if(self.chkBrk(isHeli,isBrake) and self.ACEngine[0].currentRPM()>float(10.0) and airspeed>float(5) and self.ACEngine[0].planeALT()>10):
 
 				self.Transmitting = 0
 				
-				if self.CurrentTimeCaption:
-					_currhours=self.flightTime/3600
-					_currmins=(self.flightTime-_currhours*3600)/60
-					XPSetWidgetDescriptor(self.CurrentTimeCaption, "Current flight time: "+str(_currhours)+" hours "+str(_currmins)+" mins")
-
 				# engine feed only when flying: pre-heat recommended on ground
 				for iengfeed in range(self.NumberOfEngines):
 					#sec,rpm,mix,cht,altitude):
@@ -769,9 +770,20 @@ class PythonInterface:
 				startFlight=self.XFSEpost("user="+self.userstr+"&pass="+self.passstr+"&action=startFlight&lat="+str(Lat)+"&lon="+str(Lon)+"&aircraft="+self.CurrentAircraft.replace(' ','%20'))
 				
 				if startFlight.getElementsByTagName('response')[0].firstChild.nodeName=="error":
-					XPSetWidgetDescriptor(self.ErrorCaption[0], startFlight.getElementsByTagName('error')[0].firstChild.data)
-					XPSetWidgetDescriptor(self.ErrorCaption[1], "")
-					XPSetWidgetDescriptor(self.ErrorCaption[2], "")
+					#assign the error text to line 1 always
+					_err1=startFlight.getElementsByTagName('error')[0].firstChild.data
+					_err2=""
+					_err3=""
+					_find=_err1.find("is not compatible with your rented")
+					#... but break the "is not campatible" warning down into three line for better readability
+					if _find>0:
+						_err2=_err1[_find:_find+34]
+						_err3="["+_err1[_find+35:]+"]"
+						_err1="["+_err1[:_find-1]+"]"
+						
+					XPSetWidgetDescriptor(self.ErrorCaption[0], _err1)
+					XPSetWidgetDescriptor(self.ErrorCaption[1], _err2)
+					XPSetWidgetDescriptor(self.ErrorCaption[2], _err3)
 				else:
 
 					XPSetWidgetDescriptor(self.ErrorCaption[0], "")
@@ -861,6 +873,7 @@ class PythonInterface:
 					message2="Flight started. Enjoy!"
 					XPSetWidgetDescriptor(self.ErrorCaption[0], message)
 					XPSetWidgetDescriptor(self.ErrorCaption[1], message2)
+					XPSetWidgetDescriptor(self.ErrorCaption[2], "")
 					self.err1 = message
 					self.err2 = message2
 					self.errormessage = 10
@@ -880,7 +893,9 @@ class PythonInterface:
 				print "[Nfo] Flight has arrived"
 
 				self.Transmitting=self.Transmitting+1
-				XPSetWidgetDescriptor(self.ServerResponseCaption, "XMIT, Try "+str(self.Transmitting)+" ...")
+				XPSetWidgetDescriptor(self.ServerResponseCaption, "Transmitting (Try "+str(self.Transmitting)+") ...")
+				if (self.Transmitting==2): #open the window to let the user know that 1st try failed
+					XPShowWidget(self.XFSEWidget)
 				
 				_PlaneLatdr = XPLMFindDataRef("sim/flightmodel/position/latitude")
 				_PlaneLondr = XPLMFindDataRef("sim/flightmodel/position/longitude")
@@ -953,10 +968,11 @@ class PythonInterface:
 
 					print "[Nfo] Your flight has been logged to the server"
 					_fuelTotalGal=int((XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel_total")) * 0.3721)+0.5)
-					message=str(_fuelTotalGal)+" gallons of fuel onboard."
-					message2="Flight successfully logged to the server."
+					message="Your flight has been logged to the server."
+					message2=str(_fuelTotalGal)+" gallons of fuel left."
 					XPSetWidgetDescriptor(self.ErrorCaption[0], message)
 					XPSetWidgetDescriptor(self.ErrorCaption[1], message2)
+					XPSetWidgetDescriptor(self.ErrorCaption[2], "")
 					self.err1 = message
 					self.err2 = message2
 					self.errormessage = 10
@@ -966,7 +982,7 @@ class PythonInterface:
 					self.flightTime=0
 					self.enableAllInstruments()
 
-					XPSetWidgetDescriptor(self.ServerResponseCaption, "XMIT, Try "+str(self.Transmitting)+" ... OK")
+					XPSetWidgetDescriptor(self.ServerResponseCaption, "Transmitting (Try "+str(self.Transmitting)+") ... OK")
 				else:
 					print "[WRN] Flight logging NOT complete. Check your internet connection to the FSE-Server and try again."
 					
@@ -989,6 +1005,7 @@ class PythonInterface:
 				XPSetWidgetProperty(self.CancelFlyButton, xpProperty_Enabled, 0)
 				XPSetWidgetDescriptor(self.ErrorCaption[0], message)
 				XPSetWidgetDescriptor(self.ErrorCaption[1], message2)
+				XPSetWidgetDescriptor(self.ErrorCaption[2], "")
 				self.err1 = message
 				self.err2 = message2
 				self.errormessage = 10
@@ -1026,6 +1043,8 @@ class PythonInterface:
 				if(logincheck.getElementsByTagName('response')[0].firstChild.nodeName=="notok"):
 					XPSetWidgetDescriptor(self.ServerResponseCaption, "Update available!")
 					XPSetWidgetDescriptor(self.ErrorCaption[0], "!!! New version is available: v"+str(logincheck.getElementsByTagName('notok')[0].firstChild.data))
+					XPSetWidgetDescriptor(self.ErrorCaption[1], "")
+					XPSetWidgetDescriptor(self.ErrorCaption[2], "")
 					XPSetWidgetProperty(self.UpdateButton, xpProperty_Enabled, 1)
 					print "[Nfo] New version avail"
 				else:
@@ -1042,6 +1061,7 @@ class PythonInterface:
 		_oldClient.close()
 		XPSetWidgetDescriptor(self.ErrorCaption[0], "Your client is updated, please restart X-Plane,")
 		XPSetWidgetDescriptor(self.ErrorCaption[1], "or reload plugins via Plugins / Python Interface / Control Panel")
+		XPSetWidgetDescriptor(self.ErrorCaption[2], "")
 		self.err1 = "Your client is updated, please restart X-Plane,"
 		self.err2 = "or reload plugins via Plugins / Python Interface / Control Panel"
 		
