@@ -87,7 +87,7 @@ class PythonInterface:
 		self.Name = "X-Economy"
 		self.Sig =  "ksgy.Python.XFSEconomy"
 		self.Desc = "X-Economy - plugin for FSEconomy (www.fseconomy.net)"
-		self.VERSION="1.8.0 (RC7)"
+		self.VERSION="1.8.0 (RC9)"
 		self.MenuItem1 = 0			#Flag if main window has already been created
 		self.MenuItem2 = 0			#Flag if alias window has already been created
 		self.cancelCmdFlag = 0		#Flag if "cancelArm" Command has been called
@@ -614,6 +614,10 @@ class PythonInterface:
 		self.errormessage = self.errormessage - 1
 		_groundcompression=XPLMGetDatai(XPLMFindDataRef("sim/time/ground_speed"))
 		XPLMSetDatai(XPLMFindDataRef("sim/time/ground_speed"),1)
+
+		# flightTimer and check
+		self.flightTimer=XPLMGetDataf(XPLMFindDataRef("sim/time/total_flight_time_sec"))
+
 		if self.flying==1:
 			
 			if _groundcompression>1:
@@ -639,8 +643,7 @@ class PythonInterface:
 
 			self.checkfuel=XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel_total"))
 
-			# flightTimer and check
-			self.flightTimer=XPLMGetDataf(XPLMFindDataRef("sim/time/total_flight_time_sec"))
+			# flightTimer check
 			if(self.flightTimer < self.flightTimerLast):
 				self.cancelFlight("Aircraft changed or repositioned. Your flight has been cancelled","")
 			self.flightTimerLast=self.flightTimer
@@ -784,6 +787,10 @@ class PythonInterface:
 					XPSetWidgetDescriptor(self.ErrorCaption[0], _err1)
 					XPSetWidgetDescriptor(self.ErrorCaption[1], _err2)
 					XPSetWidgetDescriptor(self.ErrorCaption[2], _err3)
+					self.err1 = _err1
+					self.err2 = _err2
+					self.errormessage = 10
+					
 				else:
 
 					XPSetWidgetDescriptor(self.ErrorCaption[0], "")
@@ -950,6 +957,15 @@ class PythonInterface:
 				if len(_finishflight.getElementsByTagName('result'))>0:
 					_err=_finishflight.getElementsByTagName('result')[0].firstChild.data
 					_errA=_err.split('|')
+
+					_fuelTotalGal=int((XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel_total")) * 0.3721)+0.5)
+					message=_errA[0]
+					message2=str(_fuelTotalGal)+" gallons of fuel left."
+					self.err1 = message
+					self.err2 = message2
+					self.errormessage = 10
+					
+					print "[Nfo] Server returned: "+_err
 					
 					for ierr in range(len(_errA)):
 						if _errA[ierr]>80:
@@ -965,17 +981,6 @@ class PythonInterface:
 					XPSetWidgetProperty(self.CancelFlyButton, xpProperty_Enabled, 0)
 					self.flying=0
 					self.Arrived=1
-
-					print "[Nfo] Your flight has been logged to the server"
-					_fuelTotalGal=int((XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel_total")) * 0.3721)+0.5)
-					message="Your flight has been logged to the server."
-					message2=str(_fuelTotalGal)+" gallons of fuel left."
-					XPSetWidgetDescriptor(self.ErrorCaption[0], message)
-					XPSetWidgetDescriptor(self.ErrorCaption[1], message2)
-					XPSetWidgetDescriptor(self.ErrorCaption[2], "")
-					self.err1 = message
-					self.err2 = message2
-					self.errormessage = 10
 
 					print "[dbg] Flight time reset. All instruments enabled"
 					self.flightStart=0
