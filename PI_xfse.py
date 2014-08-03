@@ -87,7 +87,7 @@ class PythonInterface:
 		self.Name = "X-Economy"
 		self.Sig =  "ksgy.Python.XFSEconomy"
 		self.Desc = "X-Economy - plugin for FSEconomy (www.fseconomy.net)"
-		self.VERSION="1.8.0 (RC9)"
+		self.VERSION="1.8.0 (RC10)"
 		self.MenuItem1 = 0			#Flag if main window has already been created
 		self.MenuItem2 = 0			#Flag if alias window has already been created
 		self.cancelCmdFlag = 0		#Flag if "cancelArm" Command has been called
@@ -116,6 +116,7 @@ class PythonInterface:
 		self.checkfuel=0
 		self.err1=""
 		self.err2=""
+		self.err3=""
 		self.ACEngine=[]
 		Item = XPLMAppendMenuItem(XPLMFindPluginsMenu(), "X-Economy", 0, 1)
 		self.XFSEMenuHandlerCB = self.XFSEMenuHandler
@@ -251,7 +252,7 @@ class PythonInterface:
 		if(phase==0): #KeyDown event
 			if(self.cancelCmdFlag == 1):
 				print "[Nfo] CMD flight cancel confirm"
-				self.cancelFlight("Flight cancelled by external cancel command sequence","")
+				self.cancelFlight("Flight cancelled","")
 			else:
 				print "[Nfo] CMD flight cancel confirm is locked!"
 		return 0
@@ -270,10 +271,11 @@ class PythonInterface:
 			lLeft = [];	lTop = []; lRight = [];	lBottom = []
 			XPLMGetWindowGeometry(inWindowID, lLeft, lTop, lRight, lBottom)
 			left = int(lLeft[0]); top = int(lTop[0]); right = int(lRight[0]); bottom = int(lBottom[0])
-			gResult = XPLMDrawTranslucentDarkBox(left,top+150,right+200,bottom+300)
+			gResult = XPLMDrawTranslucentDarkBox(left,top+150,right+200,bottom+290)
 			color = 1.0, 1.0, 1.0
-			gResult = XPLMDrawString(color, left+5, top+132, self.err1, 0, xplmFont_Basic)
+			gResult1 = XPLMDrawString(color, left+5, top+132, self.err1, 0, xplmFont_Basic)
 			gResult2 = XPLMDrawString(color, left+5, top+117, self.err2, 0, xplmFont_Basic)
+			gResult3 = XPLMDrawString(color, left+5, top+102, self.err3, 0, xplmFont_Basic)
 			
 	#############################################################
 	## GUI Creation Handler
@@ -769,6 +771,7 @@ class PythonInterface:
 				Lon = XPLMGetDataf(PlaneLondr)
 				self.err1=""
 				self.err2=""
+				self.err3=""
 
 				startFlight=self.XFSEpost("user="+self.userstr+"&pass="+self.passstr+"&action=startFlight&lat="+str(Lat)+"&lon="+str(Lon)+"&aircraft="+self.CurrentAircraft.replace(' ','%20'))
 				
@@ -789,6 +792,7 @@ class PythonInterface:
 					XPSetWidgetDescriptor(self.ErrorCaption[2], _err3)
 					self.err1 = _err1
 					self.err2 = _err2
+					self.err3 = _err3
 					self.errormessage = 10
 					
 				else:
@@ -876,13 +880,15 @@ class PythonInterface:
 
 					XPSetWidgetDescriptor(self.ServerResponseCaption, "")
 					
-					message=str(_assignments)+" assignments loaded. "+str(_fuelTotalGal)+" gallons of fuel onboard."
-					message2="Flight started. Enjoy!"
-					XPSetWidgetDescriptor(self.ErrorCaption[0], message)
+					message1=str(_assignments)+" assignments loaded."
+					message2=str(_fuelTotalGal)+" gallons of fuel onboard."
+					message3="Flight started. Enjoy!"
+					XPSetWidgetDescriptor(self.ErrorCaption[0], message1)
 					XPSetWidgetDescriptor(self.ErrorCaption[1], message2)
-					XPSetWidgetDescriptor(self.ErrorCaption[2], "")
-					self.err1 = message
+					XPSetWidgetDescriptor(self.ErrorCaption[2], message3)
+					self.err1 = message1
 					self.err2 = message2
+					self.err3 = message3
 					self.errormessage = 10
 					
 					for iengclear in range(self.NumberOfEngines):
@@ -958,22 +964,31 @@ class PythonInterface:
 					_err=_finishflight.getElementsByTagName('result')[0].firstChild.data
 					_errA=_err.split('|')
 
-					_fuelTotalGal=int((XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel_total")) * 0.3721)+0.5)
-					message=_errA[0]
-					message2=str(_fuelTotalGal)+" gallons of fuel left."
-					self.err1 = message
-					self.err2 = message2
-					self.errormessage = 10
-					
 					print "[Nfo] Server returned: "+_err
 					
+					self.err1=""
+					self.err2=""
+					self.err3=""
+					self.errormessage = 10
 					for ierr in range(len(_errA)):
 						if _errA[ierr]>80:
 							_terrA=_errA[ierr].split('.')
 							XPSetWidgetDescriptor(self.ErrorCaption[ierr], _terrA[0])
 							XPSetWidgetDescriptor(self.ErrorCaption[ierr+1], _terrA[1].lstrip())
+							if(ierr==0):
+								self.err1 = _terrA[0]
+								self.err2 = _terrA[1].lstrip()
+							if(ierr==1):
+								self.err2 = _terrA[0]
+								self.err3 = _terrA[1].lstrip()
 						else:
 							XPSetWidgetDescriptor(self.ErrorCaption[ierr], _errA[ierr])
+							if(ierr==0):
+								self.err1 = _errA[ierr]
+							if(ierr==1):
+								self.err2 = _errA[ierr]
+							if(ierr==2):
+								self.err3 = _errA[ierr]
 
 					#if server communication fails we won't get here
 					#so we should be able to log the flight again
@@ -1013,6 +1028,7 @@ class PythonInterface:
 				XPSetWidgetDescriptor(self.ErrorCaption[2], "")
 				self.err1 = message
 				self.err2 = message2
+				self.err3 = ""
 				self.errormessage = 10
 				
 			print "[dbg] Cancel flight1: " + message
@@ -1069,6 +1085,7 @@ class PythonInterface:
 		XPSetWidgetDescriptor(self.ErrorCaption[2], "")
 		self.err1 = "Your client is updated, please restart X-Plane,"
 		self.err2 = "or reload plugins via Plugins / Python Interface / Control Panel"
+		self.err3 = ""
 		
 	#############################################################
 	## Start Flight Assignment Helper function
