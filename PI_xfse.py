@@ -87,7 +87,7 @@ class PythonInterface:
 		self.Name = "X-Economy"
 		self.Sig =  "ksgy.Python.XFSEconomy"
 		self.Desc = "X-Economy - plugin for FSEconomy (www.fseconomy.net)"
-		self.VERSION="1.8.0 (RC10)"
+		self.VERSION="1.8.0 (RC11)"
 		self.MenuItem1 = 0			#Flag if main window has already been created
 		self.MenuItem2 = 0			#Flag if alias window has already been created
 		self.cancelCmdFlag = 0		#Flag if "cancelArm" Command has been called
@@ -96,13 +96,13 @@ class PythonInterface:
 		self.flightTimerLast = 0	#last value of flightTimer to recognize a "flightTimer"-Reset
 		
 		self.flying = 0				#Flag if a Flight was started
+		self.airborne = 0			#Flag if Plane/Heli took off the airfield
 		self.flightStart = 0		#Time when the Flight was started
 		self.flightTime = 0			#Time that we are flying
 		self.Arrived = 0			#Flag that we have arrived and need to transmit the data now
 		self.Transmitting = 0		#Counter for Transmit-Retries
 		self.leaseStart = 0			#Maximum lease time allowed to this rent
 		self.leaseTime = 0			#Actual lease time (time left)
-		self.errormessage = 10		#Timeout that the GlassWindow-Messages will be shown
 		self.CurrentTimeCaption=""
 		self.LeaseCaption = 0
 		self.CurrentAircraft=""		#Name of the current aircraft
@@ -117,6 +117,8 @@ class PythonInterface:
 		self.err1=""
 		self.err2=""
 		self.err3=""
+		self.errorcolor=""
+		self.errormessage = 10		#Timeout that the GlassWindow-Messages will be shown
 		self.ACEngine=[]
 		Item = XPLMAppendMenuItem(XPLMFindPluginsMenu(), "X-Economy", 0, 1)
 		self.XFSEMenuHandlerCB = self.XFSEMenuHandler
@@ -273,6 +275,12 @@ class PythonInterface:
 			left = int(lLeft[0]); top = int(lTop[0]); right = int(lRight[0]); bottom = int(lBottom[0])
 			gResult = XPLMDrawTranslucentDarkBox(left,top+150,right+200,bottom+290)
 			color = 1.0, 1.0, 1.0
+			if(self.errorcolor=="green"):
+				color = 0.3, 1.0, 0.3
+			if(self.errorcolor=="red"):
+				color = 1.0, 0.3, 0.3
+			if(self.errorcolor=="yellow"):
+				color = 1.0, 1.0, 0.3
 			gResult1 = XPLMDrawString(color, left+5, top+132, self.err1, 0, xplmFont_Basic)
 			gResult2 = XPLMDrawString(color, left+5, top+117, self.err2, 0, xplmFont_Basic)
 			gResult3 = XPLMDrawString(color, left+5, top+102, self.err3, 0, xplmFont_Basic)
@@ -613,7 +621,9 @@ class PythonInterface:
 	#############################################################
 	## airborne/flight supervising function
 	def checkACState(self, elapsedMe, elapsedSim, counter, refcon):
-		self.errormessage = self.errormessage - 1
+		if(self.errormessage>0):
+			self.errormessage = self.errormessage - 1
+		
 		_groundcompression=XPLMGetDatai(XPLMFindDataRef("sim/time/ground_speed"))
 		XPLMSetDatai(XPLMFindDataRef("sim/time/ground_speed"),1)
 
@@ -668,8 +678,8 @@ class PythonInterface:
 				
 			if(self.chkBrk(isHeli,isBrake) and self.ACEngine[0].currentRPM()>float(10.0) and airspeed>float(5) and self.ACEngine[0].planeALT()>10):
 
+				self.airborne = 1
 				self.Transmitting = 0
-				
 				# engine feed only when flying: pre-heat recommended on ground
 				for iengfeed in range(self.NumberOfEngines):
 					#sec,rpm,mix,cht,altitude):
@@ -677,14 +687,16 @@ class PythonInterface:
 
 			# arrive
 			else:
-				if isHeli == 1:
-					if(self.flightTime>60 and self.isAllEngineStopped() and self.ACEngine[0].planeALT()<50 and airspeed<float(5)):
-						print "[Nfo] Heli arrived"
-						self.arrive()
-				else:
-					if(self.flightTime>60 and self.isAllEngineStopped() and self.ACEngine[0].planeALT()<50 and isBrake==1.0 and airspeed<float(30)):
-						print "[Nfo] Plane arrived"
-						self.arrive()
+				if(self.airborne == 1):
+					if(self.flightTime>60 and self.isAllEngineStopped() and self.ACEngine[0].planeALT()<50):
+						if(isHeli == 1):
+							if(airspeed<float(5)):
+								print "[Nfo] Heli arrived"
+								self.arrive()
+						else:
+							if(isBrake==1.0 and airspeed<float(30)):
+								print "[Nfo] Plane arrived"
+								self.arrive()
 
 			if(self.stEq=="0"):
 				self.disableAP()
@@ -772,6 +784,7 @@ class PythonInterface:
 				self.err1=""
 				self.err2=""
 				self.err3=""
+				self.errorcolor=""
 
 				startFlight=self.XFSEpost("user="+self.userstr+"&pass="+self.passstr+"&action=startFlight&lat="+str(Lat)+"&lon="+str(Lon)+"&aircraft="+self.CurrentAircraft.replace(' ','%20'))
 				
@@ -793,6 +806,7 @@ class PythonInterface:
 					self.err1 = _err1
 					self.err2 = _err2
 					self.err3 = _err3
+					self.errorcolor="red"
 					self.errormessage = 10
 					
 				else:
@@ -876,6 +890,7 @@ class PythonInterface:
 					self.flightTimerLast=self.flightTimer #sync timer diffs
 					self.flightTime = 0
 					self.flying=1 # start flight query
+					self.airborne=0
 					self.gsCheat = 0
 
 					XPSetWidgetDescriptor(self.ServerResponseCaption, "")
@@ -889,6 +904,7 @@ class PythonInterface:
 					self.err1 = message1
 					self.err2 = message2
 					self.err3 = message3
+					self.errorcolor="green"
 					self.errormessage = 10
 					
 					for iengclear in range(self.NumberOfEngines):
@@ -907,6 +923,11 @@ class PythonInterface:
 
 				self.Transmitting=self.Transmitting+1
 				XPSetWidgetDescriptor(self.ServerResponseCaption, "Transmitting (Try "+str(self.Transmitting)+") ...")
+				self.err1="Transmitting results to server."
+				self.err2="You have to wait until transmission is complete or cancel the flight"
+				self.err3="Try "+str(self.Transmitting)+" ..."
+				self.errorcolor="yellow"
+				self.errormessage = 10
 				if (self.Transmitting==2): #open the window to let the user know that 1st try failed
 					XPShowWidget(self.XFSEWidget)
 				
@@ -969,7 +990,9 @@ class PythonInterface:
 					self.err1=""
 					self.err2=""
 					self.err3=""
+					self.errorcolor="red"
 					self.errormessage = 10
+					
 					for ierr in range(len(_errA)):
 						if _errA[ierr]>80:
 							_terrA=_errA[ierr].split('.')
@@ -990,8 +1013,9 @@ class PythonInterface:
 							if(ierr==2):
 								self.err3 = _errA[ierr]
 
-					#if server communication fails we won't get here
-					#so we should be able to log the flight again
+					if(self.err1=="Your flight is logged and the results can be found at the website"):
+						self.errorcolor="green"
+								
 					XPSetWidgetProperty(self.StartFlyButton, xpProperty_Enabled, 1)
 					XPSetWidgetProperty(self.CancelFlyButton, xpProperty_Enabled, 0)
 					self.flying=0
@@ -1029,6 +1053,7 @@ class PythonInterface:
 				self.err1 = message
 				self.err2 = message2
 				self.err3 = ""
+				self.errorcolor = "red"
 				self.errormessage = 10
 				
 			print "[dbg] Cancel flight1: " + message
@@ -1086,6 +1111,9 @@ class PythonInterface:
 		self.err1 = "Your client is updated, please restart X-Plane,"
 		self.err2 = "or reload plugins via Plugins / Python Interface / Control Panel"
 		self.err3 = ""
+		self.err3 = ""
+		self.errorcolor="yellow"
+		self.errormessage = 100
 		
 	#############################################################
 	## Start Flight Assignment Helper function
