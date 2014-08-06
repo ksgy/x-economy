@@ -87,7 +87,7 @@ class PythonInterface:
 		self.Name = "X-Economy"
 		self.Sig =  "ksgy.Python.XFSEconomy"
 		self.Desc = "X-Economy - plugin for FSEconomy (www.fseconomy.net)"
-		self.VERSION="1.8.0 (RC11)"
+		self.VERSION="1.8.0 (RC12)"
 		self.MenuItem1 = 0			#Flag if main window has already been created
 		self.MenuItem2 = 0			#Flag if alias window has already been created
 		self.cancelCmdFlag = 0		#Flag if "cancelArm" Command has been called
@@ -923,13 +923,13 @@ class PythonInterface:
 
 				self.Transmitting=self.Transmitting+1
 				XPSetWidgetDescriptor(self.ServerResponseCaption, "Transmitting (Try "+str(self.Transmitting)+") ...")
-				self.err1="Transmitting results to server."
-				self.err2="You have to wait until transmission is complete or cancel the flight"
-				self.err3="Try "+str(self.Transmitting)+" ..."
-				self.errorcolor="yellow"
-				self.errormessage = 10
 				if (self.Transmitting==2): #open the window to let the user know that 1st try failed
 					XPShowWidget(self.XFSEWidget)
+				#self.err1="Transmitting results to server."
+				#self.err2="You have to wait until transmission is complete or cancel the flight"
+				#self.err3="Try "+str(self.Transmitting)+" ..."
+				#self.errorcolor="yellow"
+				#self.errormessage = 10
 				
 				_PlaneLatdr = XPLMFindDataRef("sim/flightmodel/position/latitude")
 				_PlaneLondr = XPLMFindDataRef("sim/flightmodel/position/longitude")
@@ -1014,7 +1014,14 @@ class PythonInterface:
 								self.err3 = _errA[ierr]
 
 					if(self.err1=="Your flight is logged and the results can be found at the website"):
+						# override err2/err3 with more useful information
 						self.errorcolor="green"
+						self.err1=self.err1+"."
+						_currhours=self.flightTime/3600
+						_currmins=(self.flightTime-_currhours*3600)/60
+						_fuelTotalGal=int((XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel_total")) * 0.3721)+0.5)
+						self.err2="Your total flight time was "+str(_currhours)+" hours "+str(_currmins)+" mins."
+						self.err3="You still have "+str(_fuelTotalGal)+" gallons of fuel onboard."
 								
 					XPSetWidgetProperty(self.StartFlyButton, xpProperty_Enabled, 1)
 					XPSetWidgetProperty(self.CancelFlyButton, xpProperty_Enabled, 0)
