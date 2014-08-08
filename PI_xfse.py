@@ -87,7 +87,7 @@ class PythonInterface:
 		self.Name = "X-Economy"
 		self.Sig =  "ksgy.Python.XFSEconomy"
 		self.Desc = "X-Economy - plugin for FSEconomy (www.fseconomy.net)"
-		self.VERSION="1.8.0 (RC13)"
+		self.VERSION="1.8.0 (RC14)"
 		self.MenuItem1 = 0			#Flag if main window has already been created
 		self.MenuItem2 = 0			#Flag if alias window has already been created
 		self.cancelCmdFlag = 0		#Flag if "cancelArm" Command has been called
@@ -114,7 +114,7 @@ class PythonInterface:
 		self.globalX=0
 		self.globalY=0
 		self.checkfuel=0
-		self.err=(["","",""])
+		self.errortext=(["","","",""])
 		self.errorcolor=""
 		self.errormessage = 10		#Timeout that the GlassWindow-Messages will be shown
 		self.ACEngine=[]
@@ -266,23 +266,44 @@ class PythonInterface:
 		pass 
 
 	def DrawWindowCallback(self, inWindowID, inRefcon):
-
-		if(self.err[0] != "" and self.errormessage > 0):
+		if(self.errortext[0] != "" and self.errormessage > 0):
 			lLeft = [];	lTop = []; lRight = [];	lBottom = []
 			XPLMGetWindowGeometry(inWindowID, lLeft, lTop, lRight, lBottom)
 			left = int(lLeft[0]); top = int(lTop[0]); right = int(lRight[0]); bottom = int(lBottom[0])
-			gResult = XPLMDrawTranslucentDarkBox(left,top+150,right+200,bottom+290)
+
+			#window height depending of number of strings to show
+			_yOffs=275
+			if(self.errortext[3] == ""):
+				_yOffs=290
+				if(self.errortext[2] == ""):
+					_yOffs=305
+					if(self.errortext[1] == ""):
+						_yOffs=315
+					
+			#window width depending of length of strings
+			_xOffs=0 #130
+			for _str in self.errortext:
+				_px=XPLMMeasureString(xplmFont_Basic, _str, len(_str))+20
+				if(_px>_xOffs):
+					_xOffs=_px
+			
+			XPLMDrawTranslucentDarkBox(left,top+150,right+_xOffs-250,bottom+_yOffs)
+			XPLMDrawTranslucentDarkBox(left,top+150,right+_xOffs-250,bottom+_yOffs) #draw two of them to add more contrast
+
+			brt = 0.2
 			color = 1.0, 1.0, 1.0
 			if(self.errorcolor=="green"):
-				color = 0.3, 1.0, 0.3
+				color = brt, 1.0, brt
 			if(self.errorcolor=="red"):
-				color = 1.0, 0.3, 0.3
+				color = 1.0, brt, brt
 			if(self.errorcolor=="yellow"):
-				color = 1.0, 1.0, 0.3
-			gResult1 = XPLMDrawString(color, left+5, top+132, self.err[0], 0, xplmFont_Basic)
-			gResult2 = XPLMDrawString(color, left+5, top+117, self.err[1], 0, xplmFont_Basic)
-			gResult3 = XPLMDrawString(color, left+5, top+102, self.err[2], 0, xplmFont_Basic)
-			
+				color = 1.0, 1.0, brt
+
+			XPLMDrawString(color, left+10, top+132, self.errortext[0], 0, xplmFont_Basic)
+			XPLMDrawString(color, left+10, top+117, self.errortext[1], 0, xplmFont_Basic)
+			XPLMDrawString(color, left+10, top+102, self.errortext[2], 0, xplmFont_Basic)
+			XPLMDrawString(color, left+10, top+ 87, self.errortext[3], 0, xplmFont_Basic)
+
 	#############################################################
 	## GUI Creation Handler
 	def CreateXFSEWidget(self, x, y, w, h):
@@ -378,6 +399,8 @@ class PythonInterface:
 		self.ErrorCaption.append(XPCreateWidget(x+20, y-425, x+50, y-445,1, "", 0, self.XFSEWidget,xpWidgetClass_Caption))
 		# Error3 text
 		self.ErrorCaption.append(XPCreateWidget(x+20, y-440, x+50, y-460,1, "", 0, self.XFSEWidget,xpWidgetClass_Caption))
+		# Error4 text
+		self.ErrorCaption.append(XPCreateWidget(x+20, y-455, x+50, y-475,1, "", 0, self.XFSEWidget,xpWidgetClass_Caption))
 
 		# From/To/Cargo
 		self.FromCaption=[]
@@ -553,6 +576,20 @@ class PythonInterface:
 		print "[XFSE|dbg] Server retd: "+stuff
 		dom = minidom.parseString(stuff)
 		return dom
+
+	#############################################################
+	## Helper funcs
+	def setInfoMessage(self, msg1,msg2,msg3,msg4, color):
+		self.errortext[0] = msg1
+		self.errortext[1] = msg2
+		self.errortext[2] = msg3
+		self.errortext[3] = msg4
+		self.errorcolor = color
+		self.errormessage = 10
+		XPSetWidgetDescriptor(self.ErrorCaption[0], self.errortext[0])
+		XPSetWidgetDescriptor(self.ErrorCaption[1], self.errortext[1])
+		XPSetWidgetDescriptor(self.ErrorCaption[2], self.errortext[2])
+		XPSetWidgetDescriptor(self.ErrorCaption[3], self.errortext[3])
 
 	#############################################################
 	## Plane related Helper funcs
@@ -771,145 +808,131 @@ class PythonInterface:
 			self.ToCaption=[]
 			self.CargoCaption=[]
 
-			if self.CurrentAircraft=="":
-				XPSetWidgetDescriptor(self.ErrorCaption[0], "Unknown aircraft: "+str(ByteVals[0])+". If you're sure this is an FSE compatible aircraft, please edit")
-				XPSetWidgetDescriptor(self.ErrorCaption[1], "aircraft description in Plane Maker, eg.: King Air B200. If you're not sure, or it's a new")
-				XPSetWidgetDescriptor(self.ErrorCaption[2], "plane to FSE, please email to templates@fseconomy.com including the plane specs")
-			else:
-				PlaneLatdr = XPLMFindDataRef("sim/flightmodel/position/latitude")
-				PlaneLondr = XPLMFindDataRef("sim/flightmodel/position/longitude")
-				Lat = XPLMGetDataf(PlaneLatdr)
-				Lon = XPLMGetDataf(PlaneLondr)
-				self.err[0]=""
-				self.err[1]=""
-				self.err[2]=""
-				self.errorcolor=""
+			#if self.CurrentAircraft=="":
+			#	self.setInfoMessage("Unknown aircraft: "+str(ByteVals[0])+". If you're sure this is an FSE compatible aircraft,",
+			#						"please edit aircraft description in Plane Maker, eg.: King Air B200. If you're not sure,",
+			#						"or it's a new plane to FSE, please email to templates@fseconomy.com including the plane specs",
+			#						"",
+			#						"yellow")
+			#else:
+			PlaneLatdr = XPLMFindDataRef("sim/flightmodel/position/latitude")
+			PlaneLondr = XPLMFindDataRef("sim/flightmodel/position/longitude")
+			Lat = XPLMGetDataf(PlaneLatdr)
+			Lon = XPLMGetDataf(PlaneLondr)
 
-				startFlight=self.XFSEpost("user="+self.userstr+"&pass="+self.passstr+"&action=startFlight&lat="+str(Lat)+"&lon="+str(Lon)+"&aircraft="+self.CurrentAircraft.replace(' ','%20'))
-				
-				if startFlight.getElementsByTagName('response')[0].firstChild.nodeName=="error":
-					#assign the error text to line 1 always
-					_err1=startFlight.getElementsByTagName('error')[0].firstChild.data
-					_err2=""
-					_err3=""
-					_find=_err1.find("is not compatible with your rented")
-					#... but break the "is not campatible" warning down into three line for better readability
-					if _find>0:
-						_err2=_err1[_find:_find+34]
-						_err3="["+_err1[_find+35:]+"]"
-						_err1="["+_err1[:_find-1]+"]"
-						
-					XPSetWidgetDescriptor(self.ErrorCaption[0], _err1)
-					XPSetWidgetDescriptor(self.ErrorCaption[1], _err2)
-					XPSetWidgetDescriptor(self.ErrorCaption[2], _err3)
-					self.err[0] = _err1
-					self.err[1] = _err2
-					self.err[2] = _err3
-					self.errorcolor="red"
-					self.errormessage = 10
-					
+			startFlight=self.XFSEpost("user="+self.userstr+"&pass="+self.passstr+"&action=startFlight&lat="+str(Lat)+"&lon="+str(Lon)+"&aircraft="+self.CurrentAircraft.replace(' ','%20'))
+			
+			if startFlight.getElementsByTagName('response')[0].firstChild.nodeName=="error":
+				_err=startFlight.getElementsByTagName('error')[0].firstChild.data
+				_find=_err.find("is not compatible with your rented")
+				#break the "is not campatible" warning down into three lines with additional information
+				if _find>0:
+					self.setInfoMessage("Your flight has not been started: Aircraft aliases does not match!",
+										"FSE=["+_err[_find+35:]+"] X-Plane=["+_err[:_find-1]+"]",
+										"Pick an aircraft alias from the FSE website 'Home->Aircraft models .. Request aliases'",
+										"and enter it to 'Plugins->X-Economy->Set Aircraft alias' ... or ask the forum for help!",
+										"red")
 				else:
+					self.setInfoMessage("Your flight has not been started:",
+										startFlight.getElementsByTagName('error')[0].firstChild.data,
+										"",
+										"",
+										"red")
+				
+				
+			else: # no error ... let's start the flight!
 
-					XPSetWidgetDescriptor(self.ErrorCaption[0], "")
-					XPSetWidgetDescriptor(self.ErrorCaption[1], "")
-					XPSetWidgetDescriptor(self.ErrorCaption[2], "")
-					stFrom="-"
-					stTo="-"
-					stCargo="-"
+				stFrom="-"
+				stTo="-"
+				stCargo="-"
 
-					_assignments=0
-					for iAssignment in range(len(startFlight.getElementsByTagName('assignment'))):
-						self.addAssignment(iAssignment,str(startFlight.getElementsByTagName('from')[iAssignment].firstChild.data),str(startFlight.getElementsByTagName('to')[iAssignment].firstChild.data),str(startFlight.getElementsByTagName('cargo')[iAssignment].firstChild.data))
-						_assignments=_assignments+1
+				_assignments=0
+				for iAssignment in range(len(startFlight.getElementsByTagName('assignment'))):
+					self.addAssignment(iAssignment,str(startFlight.getElementsByTagName('from')[iAssignment].firstChild.data),str(startFlight.getElementsByTagName('to')[iAssignment].firstChild.data),str(startFlight.getElementsByTagName('cargo')[iAssignment].firstChild.data))
+					_assignments=_assignments+1
 
-					Accounting=startFlight.getElementsByTagName('accounting')[0].firstChild.data
+				Accounting=startFlight.getElementsByTagName('accounting')[0].firstChild.data
 
-					self.stEq=startFlight.getElementsByTagName('equipment')[0].firstChild.data
+				self.stEq=startFlight.getElementsByTagName('equipment')[0].firstChild.data
 
-					if(self.stEq=="0"):
-						stEquipment=" (VFR)"
-					if(self.stEq=="1"):
-						stEquipment=" (IFR)"
-					if(self.stEq=="2"):
-						stEquipment=" (GPS)"
-					if(self.stEq=="4"):
-						stEquipment=" (AP)"
-					if(self.stEq=="3"):
-						stEquipment=" (IFR, GPS)"
-					if(self.stEq=="5"):
-						stEquipment=" (AP, IFR)"
-					if(self.stEq=="6"):
-						stEquipment=" (AP, GPS)"
-					if(self.stEq=="7"):
-						stEquipment=" (IFR, AP, GPS)"
+				if(self.stEq=="0"):
+					stEquipment=" (VFR)"
+				if(self.stEq=="1"):
+					stEquipment=" (IFR)"
+				if(self.stEq=="2"):
+					stEquipment=" (GPS)"
+				if(self.stEq=="4"):
+					stEquipment=" (AP)"
+				if(self.stEq=="3"):
+					stEquipment=" (IFR, GPS)"
+				if(self.stEq=="5"):
+					stEquipment=" (AP, IFR)"
+				if(self.stEq=="6"):
+					stEquipment=" (AP, GPS)"
+				if(self.stEq=="7"):
+					stEquipment=" (IFR, AP, GPS)"
 
-					stACReg=startFlight.getElementsByTagName('registration')[0].firstChild.data
-					stLE=startFlight.getElementsByTagName('leaseExpires')[0].firstChild.data
-					XPSetWidgetDescriptor(self.ACRegCaption, "Aircraft registration: "+str(stACReg)+str(stEquipment))
-					self.leaseTime = 0
-					self.leaseTime=int(stLE)
-					self.leaseStart=int(stLE)
-					XPSetWidgetDescriptor(self.LeaseCaption, "Lease time: "+str(int(stLE)/3600)+" hours")
+				stACReg=startFlight.getElementsByTagName('registration')[0].firstChild.data
+				stLE=startFlight.getElementsByTagName('leaseExpires')[0].firstChild.data
+				XPSetWidgetDescriptor(self.ACRegCaption, "Aircraft registration: "+str(stACReg)+str(stEquipment))
+				self.leaseTime = 0
+				self.leaseTime=int(stLE)
+				self.leaseStart=int(stLE)
+				XPSetWidgetDescriptor(self.LeaseCaption, "Lease time: "+str(int(stLE)/3600)+" hours")
 
-					# set weight and fuel
-					self.stPayload=startFlight.getElementsByTagName('payloadWeight')[0].firstChild.data
-					stFuel=startFlight.getElementsByTagName('fuel')[0].firstChild.data
-					XPLMSetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fixed"),float(self.stPayload))
-					astFuel=stFuel.split(' ')
-					self.FuelTanks=[]
+				# set weight and fuel
+				self.stPayload=startFlight.getElementsByTagName('payloadWeight')[0].firstChild.data
+				stFuel=startFlight.getElementsByTagName('fuel')[0].firstChild.data
+				XPLMSetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fixed"),float(self.stPayload))
+				astFuel=stFuel.split(' ')
+				self.FuelTanks=[]
 
-					totalFuel=float(0)
-					for iFuel in range(len(astFuel)-1):
-						totalFuel+=float(astFuel[iFuel])
+				totalFuel=float(0)
+				for iFuel in range(len(astFuel)-1):
+					totalFuel+=float(astFuel[iFuel])
 
-						if float(astFuel[iFuel])>float(0):
-							self.FuelTanks.append(1)
-						else:
-							self.FuelTanks.append(0)
+					if float(astFuel[iFuel])>float(0):
+						self.FuelTanks.append(1)
+					else:
+						self.FuelTanks.append(0)
 
-					num_tanks = XPLMGetDatai(XPLMFindDataRef("sim/aircraft/overflow/acf_num_tanks")) # thx sandy barbour :)
-					currentFuel = totalFuel*float(2.68735)
-					_it=0
-					_fuelPerTanks = []
-					for _it in range(num_tanks):
-						_currentRatio = []
-						XPLMGetDatavf(XPLMFindDataRef("sim/aircraft/overflow/acf_tank_rat"),_currentRatio,0,num_tanks)
-						_fuelPerTanks.append(currentFuel*_currentRatio[_it])								
-					XPLMSetDatavf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel"),_fuelPerTanks,0,num_tanks)
+				num_tanks = XPLMGetDatai(XPLMFindDataRef("sim/aircraft/overflow/acf_num_tanks")) # thx sandy barbour :)
+				currentFuel = totalFuel*float(2.68735)
+				_it=0
+				_fuelPerTanks = []
+				for _it in range(num_tanks):
+					_currentRatio = []
+					XPLMGetDatavf(XPLMFindDataRef("sim/aircraft/overflow/acf_tank_rat"),_currentRatio,0,num_tanks)
+					_fuelPerTanks.append(currentFuel*_currentRatio[_it])								
+				XPLMSetDatavf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel"),_fuelPerTanks,0,num_tanks)
 
-					self.checkfuel=XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel_total"))
+				self.checkfuel=XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel_total"))
 
-					_fuelTotalGal=int((XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel_total")) * 0.3721)+0.5)
-					
-					XPSetWidgetProperty(self.StartFlyButton, xpProperty_Enabled, 0)
-					XPSetWidgetProperty(self.CancelFlyButton, xpProperty_Enabled, 1)
+				_fuelTotalGal=int((XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel_total")) * 0.3721)+0.5)
+				
+				XPSetWidgetProperty(self.StartFlyButton, xpProperty_Enabled, 0)
+				XPSetWidgetProperty(self.CancelFlyButton, xpProperty_Enabled, 1)
 
-					self.Arrived=0
-					self.flightStart = int( XPLMGetDataf(XPLMFindDataRef("sim/time/total_flight_time_sec")) )
-					self.flightTimerLast=self.flightTimer #sync timer diffs
-					self.flightTime = 0
-					self.flying=1 # start flight query
-					self.airborne=0
-					self.gsCheat = 0
+				self.Arrived=0
+				self.flightStart = int( XPLMGetDataf(XPLMFindDataRef("sim/time/total_flight_time_sec")) )
+				self.flightTimerLast=self.flightTimer #sync timer diffs
+				self.flightTime = 0
+				self.flying=1 # start flight query
+				self.airborne=0
+				self.gsCheat = 0
 
-					XPSetWidgetDescriptor(self.ServerResponseCaption, "")
-					
-					message1=str(_assignments)+" assignments loaded."
-					message2=str(_fuelTotalGal)+" gallons of fuel onboard."
-					message3="Flight started. Enjoy!"
-					XPSetWidgetDescriptor(self.ErrorCaption[0], message1)
-					XPSetWidgetDescriptor(self.ErrorCaption[1], message2)
-					XPSetWidgetDescriptor(self.ErrorCaption[2], message3)
-					self.err[0] = message1
-					self.err[1] = message2
-					self.err[2] = message3
-					self.errorcolor="green"
-					self.errormessage = 10
-					
-					for iengclear in range(self.NumberOfEngines):
-						self.ACEngine[iengclear].clearEng()
+				XPSetWidgetDescriptor(self.ServerResponseCaption, "")
+				
+				self.setInfoMessage("Your flight has been started:",
+									str(_fuelTotalGal)+" gallons of fuel onboard.",
+									str(_assignments)+" assignments loaded.",
+									"Enjoy your flight!",
+									"green")
+				
+				for iengclear in range(self.NumberOfEngines):
+					self.ACEngine[iengclear].clearEng()
 
-				return 1
+			return 1
 
 	#############################################################
 	## arrival function
@@ -977,41 +1000,54 @@ class PythonInterface:
 
 				if len(_finishflight.getElementsByTagName('result'))>0:
 
-					self.err[0]=""
-					self.err[1]=""
-					self.err[2]=""
-					self.errorcolor="red"
-					self.errormessage = 10
-
 					_err=_finishflight.getElementsByTagName('result')[0].firstChild.data
-					_errA=_err.split('|')
 					print "[XFSE|Nfo] Server returned: "+_err
-					
-					for ierr in range(len(_errA)):
-						#if _errA[ierr]>80:
-							_terrA=_errA[ierr].split('.')
-							
-							self.err[ierr] = _terrA[0]
-							if(len(_terrA)>=2 and ierr<=1): # only if length of array is 2 or more...
-								self.err[ierr+1] = _terrA[1].lstrip()
-						#else:
-						#	XPSetWidgetDescriptor(self.ErrorCaption[ierr], _errA[ierr])
-						#	self.err[ierr] = _errA[ierr]
 
-					XPSetWidgetDescriptor(self.ErrorCaption[0], self.err[0])
-					XPSetWidgetDescriptor(self.ErrorCaption[1], self.err[1])
-					XPSetWidgetDescriptor(self.ErrorCaption[2], self.err[2])
+					#replace pipe by space
+					_err=_err.replace('|', ' ')
+					
+					#split string into an array
+					_errA=_err.split(' ')
+					#append the spaces again
+					for ierr in range(len(_errA)-1):
+						_errA[ierr]=_errA[ierr]+" "
+
+					#concat string up to a length of 80 chars max again
+					ierr=0
+					while ierr<len(_errA)-1:
+						if(len(_errA[ierr])+len(_errA[ierr+1])<=80):
+							_errA[ierr]=_errA[ierr]+_errA.pop(ierr+1) #append _errA[ierr+1] and delete it
+						else:
+							ierr=ierr+1
+
+					#trim all strings
+					for ierr in range(len(_errA)):
+						_errA[ierr]=_errA[ierr].strip();
+							
+					#fill up the error text array to have at least 4 lines
+					linesAdd=4-len(_errA)
+					for ierr in range(linesAdd):
+						_errA.append("")
 						
-					if(self.err[0]=="Your flight is logged and the results can be found at the website"):
-						# override err2/err3 with more useful information
+					if(_errA[0].find("Your flight is logged and the results can be found at the website")==0):
 						self.errorcolor="green"
-						self.err[0]=self.err[0]+"."
+						# fill err4 with more useful information
 						_currhours=self.flightTime/3600
 						_currmins=(self.flightTime-_currhours*3600)/60
 						_fuelTotalGal=int((XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel_total")) * 0.3721)+0.5)
-						self.err[1]="Your total flight time was "+str(_currhours)+" hours "+str(_currmins)+" mins."
-						self.err[2]="You still have "+str(_fuelTotalGal)+" gallons of fuel onboard."
-								
+
+						self.setInfoMessage(_errA[0],
+											_errA[1],
+											_errA[2],
+											"Total Flight time "+str(_currhours)+":"+str(_currmins)+". Still "+str(_fuelTotalGal)+" gallons of fuel onboard.",
+											"green")
+					else:
+						self.setInfoMessage(_errA[0],
+											_errA[1],
+											_errA[2],
+											_errA[3],
+											"red")
+						
 					XPSetWidgetProperty(self.StartFlyButton, xpProperty_Enabled, 1)
 					XPSetWidgetProperty(self.CancelFlyButton, xpProperty_Enabled, 0)
 					self.flying=0
@@ -1031,7 +1067,7 @@ class PythonInterface:
 				self.cancelFlight("Lease time has ended. Your flight has been cancelled. Sorry, you will have to re-fly this trip","")
 				
 	#############################################################
-	## Flight cancal function
+	## Flight cancel function
 	def cancelFlight(self,message,message2):
 		if(self.flying==0):
 			print "[XFSE|WRN] Cancel flight function (BTN) is disabled"
@@ -1043,17 +1079,13 @@ class PythonInterface:
 			if (cancelflight.getElementsByTagName('response')[0].firstChild.nodeName=="ok"):
 				XPSetWidgetProperty(self.StartFlyButton, xpProperty_Enabled, 1)
 				XPSetWidgetProperty(self.CancelFlyButton, xpProperty_Enabled, 0)
-				XPSetWidgetDescriptor(self.ErrorCaption[0], message)
-				XPSetWidgetDescriptor(self.ErrorCaption[1], message2)
-				XPSetWidgetDescriptor(self.ErrorCaption[2], "")
-				self.err[0] = message
-				self.err[1] = message2
-				self.err[2] = ""
-				self.errorcolor = "red"
-				self.errormessage = 10
+				self.setInfoMessage(message,
+									message2,
+									"",
+									"",
+									"red")
 				
-			print "[XFSE|dbg] Cancel flight1: " + message
-			print "[XFSE|dbg] Cancel flight2: " + message2
+			print "[XFSE|dbg] Cancel flight1: [" + message + "][" + message2 + "]"
 			self.enableAllInstruments()
 
 	#############################################################
@@ -1068,30 +1100,43 @@ class PythonInterface:
 		print "[XFSE|Nfo] Logincheck"
 
 		if (logincheck.getElementsByTagName('response')[0].firstChild.nodeName=="ok"):
+			print "[XFSE|Nfo] Login successful"
 			XPSetWidgetDescriptor(self.ServerResponseCaption, "Logged in!")
 			XPSetWidgetProperty(self.LoginButton, xpProperty_Enabled, 0)
 			XPSetWidgetProperty(self.StartFlyButton, xpProperty_Enabled, 1)
-			print "[XFSE|Nfo] Login successful"
+			self.setInfoMessage("Logged in!",
+								"",
+								"",
+								"",
+								"green")
 		else:
 			print "[XFSE|Nfo] Login was not successful"
-
 			if(logincheck.getElementsByTagName('response')[0].firstChild.nodeName=="error"):
-				XPSetWidgetDescriptor(self.ServerResponseCaption, "Error!")
-				XPSetWidgetDescriptor(self.ErrorCaption[0], logincheck.getElementsByTagName('error')[0].firstChild.data)
-				XPSetWidgetDescriptor(self.ErrorCaption[1], "")
-				XPSetWidgetDescriptor(self.ErrorCaption[2], "")
 				print "[XFSE|Nfo] Invalid script"
+				XPSetWidgetDescriptor(self.ServerResponseCaption, "Error!")
+				self.setInfoMessage(logincheck.getElementsByTagName('error')[0].firstChild.data,
+									"",
+									"",
+									"",
+									"red")
 			else:
 				if(logincheck.getElementsByTagName('response')[0].firstChild.nodeName=="notok"):
-					XPSetWidgetDescriptor(self.ServerResponseCaption, "Update available!")
-					XPSetWidgetDescriptor(self.ErrorCaption[0], "!!! New version is available: v"+str(logincheck.getElementsByTagName('notok')[0].firstChild.data))
-					XPSetWidgetDescriptor(self.ErrorCaption[1], "")
-					XPSetWidgetDescriptor(self.ErrorCaption[2], "")
-					XPSetWidgetProperty(self.UpdateButton, xpProperty_Enabled, 1)
 					print "[XFSE|Nfo] New version avail"
+					XPSetWidgetDescriptor(self.ServerResponseCaption, "Update available!")
+					XPSetWidgetProperty(self.UpdateButton, xpProperty_Enabled, 1)
+					self.setInfoMessage("!!! New version is available: v"+str(logincheck.getElementsByTagName('notok')[0].firstChild.data),
+										"",
+										"",
+										"",
+										"red")
 				else:
-					XPSetWidgetDescriptor(self.ServerResponseCaption, "Invalid account!")
 					print "[XFSE|Nfo] Invalid account"
+					XPSetWidgetDescriptor(self.ServerResponseCaption, "Invalid account!")
+					self.setInfoMessage("Invalid account!",
+										"",
+										"",
+										"",
+										"red")
 		return 1
 
 	#############################################################
@@ -1101,13 +1146,11 @@ class PythonInterface:
 		_oldClient=open(os.path.join('Resources','plugins','PythonScripts','PI_xfse.py'), 'w')
 		_oldClient.write(_newClient)
 		_oldClient.close()
-		XPSetWidgetDescriptor(self.ErrorCaption[0], "Your client is updated, please restart X-Plane,")
-		XPSetWidgetDescriptor(self.ErrorCaption[1], "or reload plugins via Plugins / Python Interface / Control Panel")
-		XPSetWidgetDescriptor(self.ErrorCaption[2], "")
-		self.err[0] = "Your client is updated, please restart X-Plane,"
-		self.err[1] = "or reload plugins via Plugins / Python Interface / Control Panel"
-		self.err[2] = ""
-		self.errorcolor="yellow"
+		self.setInfoMessage("Your client is updated, please restart X-Plane,"
+							"or reload plugins via Plugins / Python Interface / Control Panel"
+							"",
+							"",
+							"yellow")
 		self.errormessage = 100
 		
 	#############################################################
