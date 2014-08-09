@@ -87,7 +87,7 @@ class PythonInterface:
 		self.Name = "X-Economy"
 		self.Sig =  "ksgy.Python.XFSEconomy"
 		self.Desc = "X-Economy - plugin for FSEconomy (www.fseconomy.net)"
-		self.VERSION="1.8.0 (RC14)"
+		self.VERSION="1.8.0 (RC15)"
 		self.MenuItem1 = 0			#Flag if main window has already been created
 		self.MenuItem2 = 0			#Flag if alias window has already been created
 		self.cancelCmdFlag = 0		#Flag if "cancelArm" Command has been called
@@ -95,6 +95,7 @@ class PythonInterface:
 		self.flightTimer = 0		#X-Plane's one second Ticker
 		self.flightTimerLast = 0	#last value of flightTimer to recognize a "flightTimer"-Reset
 		
+		self.connected = 0			#Flag if logged on to the FSE server
 		self.flying = 0				#Flag if a Flight was started
 		self.airborne = 0			#Flag if Plane/Heli took off the airfield
 		self.flightStart = 0		#Time when the Flight was started
@@ -133,14 +134,17 @@ class PythonInterface:
 		self.WindowId = XPLMCreateWindow(self, 50, 600, 300, 400, 1, self.DrawWindowCB, self.KeyCB, self.MouseClickCB, 0)
 
 		#register CustomDataRef
-		self.tempCB1 = self.CallbackDatarefFlying
-		self.drFlying = XPLMRegisterDataAccessor(self, "fse/status/flying", xplmType_Int, 0, self.tempCB1, None, None, None, None, None, None, None, None, None, None, None, 0, 0)
-		self.tempCB2 = self.CallbackDatarefLeasetime
-		self.drLeasetime= XPLMRegisterDataAccessor(self, "fse/status/leasetime", xplmType_Int, 0, self.tempCB2, None, None, None, None, None, None, None, None, None, None, None, 0, 0)
-		self.tempCB3 = self.CallbackDatarefFlighttime
-		self.drFlighttime= XPLMRegisterDataAccessor(self, "fse/status/flighttime", xplmType_Int, 0, self.tempCB3, None, None, None, None, None, None, None, None, None, None, None, 0, 0)
+		self.tempCB0      = self.CallbackDatarefConnected
+		self.drConnected  = XPLMRegisterDataAccessor(self, "fse/status/connected",  xplmType_Int, 0, self.tempCB0, None, None, None, None, None, None, None, None, None, None, None, 0, 0)
+		self.tempCB1      = self.CallbackDatarefFlying
+		self.drFlying     = XPLMRegisterDataAccessor(self, "fse/status/flying",     xplmType_Int, 0, self.tempCB1, None, None, None, None, None, None, None, None, None, None, None, 0, 0)
+		self.tempCB2      = self.CallbackDatarefLeasetime
+		self.drLeasetime  = XPLMRegisterDataAccessor(self, "fse/status/leasetime",  xplmType_Int, 0, self.tempCB2, None, None, None, None, None, None, None, None, None, None, None, 0, 0)
+		self.tempCB3      = self.CallbackDatarefFlighttime
+		self.drFlighttime = XPLMRegisterDataAccessor(self, "fse/status/flighttime", xplmType_Int, 0, self.tempCB3, None, None, None, None, None, None, None, None, None, None, None, 0, 0)
 
 		#register Custom commands
+		self.CmdServerConn  = XPLMCreateCommand("fse/server/connect",      "Login to FSE Server")
 		self.CmdWindowShow  = XPLMCreateCommand("fse/window/show",         "show FSE window")
 		self.CmdWindowHide  = XPLMCreateCommand("fse/window/hide",         "hide FSE window")
 		self.CmdWindowTogl  = XPLMCreateCommand("fse/window/toggle",       "toggle FSE window")
@@ -148,6 +152,7 @@ class PythonInterface:
 		self.CmdFlightCArm  = XPLMCreateCommand("fse/flight/cancelArm",    "Cancel flight")
 		self.CmdFlightCCon  = XPLMCreateCommand("fse/flight/cancelConfirm","Cancel flight confirm")
 		
+		self.CmdServerConnCB  = self.CmdServerConnCallback
 		self.CmdWindowShowCB  = self.CmdWindowShowCallback
 		self.CmdWindowHideCB  = self.CmdWindowHideCallback
 		self.CmdWindowToglCB  = self.CmdWindowToglCallback
@@ -155,6 +160,7 @@ class PythonInterface:
 		self.CmdFlightCArmCB  = self.CmdFlightCArmCallback
 		self.CmdFlightCConCB  = self.CmdFlightCConCallback
 		
+		XPLMRegisterCommandHandler(self, self.CmdServerConn,  self.CmdServerConnCB, 0, 0)
 		XPLMRegisterCommandHandler(self, self.CmdWindowShow,  self.CmdWindowShowCB, 0, 0)
 		XPLMRegisterCommandHandler(self, self.CmdWindowHide,  self.CmdWindowHideCB, 0, 0)
 		XPLMRegisterCommandHandler(self, self.CmdWindowTogl,  self.CmdWindowToglCB, 0, 0)
@@ -182,14 +188,16 @@ class PythonInterface:
 		XPLMUnregisterFlightLoopCallback(self, self.checkACStateCB, 0)
 		XPLMDestroyWindow(self, self.WindowId)
 
+		XPLMUnregisterDataAccessor(self, self.drConnected)
 		XPLMUnregisterDataAccessor(self, self.drFlying)
 		XPLMUnregisterDataAccessor(self, self.drLeasetime)
 		XPLMUnregisterDataAccessor(self, self.drFlighttime)
 
+		XPLMUnregisterCommandHandler(self, self.CmdServerConn,  self.CmdServerConnCB, 0, 0)
 		XPLMUnregisterCommandHandler(self, self.CmdWindowShow,  self.CmdWindowShowCB, 0, 0)
 		XPLMUnregisterCommandHandler(self, self.CmdWindowHide,  self.CmdWindowHideCB, 0, 0)
 		XPLMUnregisterCommandHandler(self, self.CmdWindowTogl,  self.CmdWindowToglCB, 0, 0)
-		XPLMUnregisterCommandHandler(self, self.CmdFlightStart, self.CmdFlightStartCB, 0, 0)
+		XPLMUnregisterCommandHandler(self, self.CmdFlightStart, self.CmdFlightStartCB,0, 0)
 		XPLMUnregisterCommandHandler(self, self.CmdFlightCArm,  self.CmdFlightCArmCB, 0, 0)
 		XPLMUnregisterCommandHandler(self, self.CmdFlightCCon,  self.CmdFlightCConCB, 0, 0)
 		
@@ -206,6 +214,8 @@ class PythonInterface:
 
 	#############################################################
 	## Callback handler for reading custom datarefs
+	def CallbackDatarefConnected(self, inval):
+		return self.connected
 	def CallbackDatarefFlying(self, inval):
 		return self.flying
 	def CallbackDatarefLeasetime(self, inval):
@@ -215,6 +225,12 @@ class PythonInterface:
 		
 	#############################################################
 	## Callback handler for custom commands
+	def CmdServerConnCallback(self, cmd, phase, refcon):
+		if(phase==0): #KeyDown event
+			print "[XFSE|Nfo] CMD server connect"
+			self.login()
+		return 0
+			
 	def CmdWindowShowCallback(self, cmd, phase, refcon):
 		if(phase==0): #KeyDown event
 			print "[XFSE|Nfo] CMD window show"
@@ -1028,7 +1044,7 @@ class PythonInterface:
 					linesAdd=4-len(_errA)
 					for ierr in range(linesAdd):
 						_errA.append("")
-						
+
 					if(_errA[0].find("Your flight is logged and the results can be found at the website")==0):
 						self.errorcolor="green"
 						# fill err4 with more useful information
@@ -1091,52 +1107,56 @@ class PythonInterface:
 	#############################################################
 	## login function
 	def login(self):
-		Buffer = []
-		XPGetWidgetDescriptor(self.LoginUserEdit,Buffer,256)
-		XPGetWidgetDescriptor(self.LoginPassEdit,Buffer,256)
-		self.userstr=Buffer[0]
-		self.passstr=Buffer[1]
-		logincheck=self.XFSEpost("user="+self.userstr+"&pass="+self.passstr+"&action=accountCheck")
-		print "[XFSE|Nfo] Logincheck"
-
-		if (logincheck.getElementsByTagName('response')[0].firstChild.nodeName=="ok"):
-			print "[XFSE|Nfo] Login successful"
-			XPSetWidgetDescriptor(self.ServerResponseCaption, "Logged in!")
-			XPSetWidgetProperty(self.LoginButton, xpProperty_Enabled, 0)
-			XPSetWidgetProperty(self.StartFlyButton, xpProperty_Enabled, 1)
-			self.setInfoMessage("Logged in!",
-								"",
-								"",
-								"",
-								"green")
+		if(self.connected==1):
+			print "[XFSE|WRN] login function (BTN) is disabled"
 		else:
-			print "[XFSE|Nfo] Login was not successful"
-			if(logincheck.getElementsByTagName('response')[0].firstChild.nodeName=="error"):
-				print "[XFSE|Nfo] Invalid script"
-				XPSetWidgetDescriptor(self.ServerResponseCaption, "Error!")
-				self.setInfoMessage(logincheck.getElementsByTagName('error')[0].firstChild.data,
+			Buffer = []
+			XPGetWidgetDescriptor(self.LoginUserEdit,Buffer,256)
+			XPGetWidgetDescriptor(self.LoginPassEdit,Buffer,256)
+			self.userstr=Buffer[0]
+			self.passstr=Buffer[1]
+			logincheck=self.XFSEpost("user="+self.userstr+"&pass="+self.passstr+"&action=accountCheck")
+			print "[XFSE|Nfo] Logincheck"
+
+			if (logincheck.getElementsByTagName('response')[0].firstChild.nodeName=="ok"):
+				print "[XFSE|Nfo] Login successful"
+				XPSetWidgetDescriptor(self.ServerResponseCaption, "Logged in!")
+				self.connected=1
+				XPSetWidgetProperty(self.LoginButton, xpProperty_Enabled, 0)
+				XPSetWidgetProperty(self.StartFlyButton, xpProperty_Enabled, 1)
+				self.setInfoMessage("Logged in!",
 									"",
 									"",
 									"",
-									"red")
+									"green")
 			else:
-				if(logincheck.getElementsByTagName('response')[0].firstChild.nodeName=="notok"):
-					print "[XFSE|Nfo] New version avail"
-					XPSetWidgetDescriptor(self.ServerResponseCaption, "Update available!")
-					XPSetWidgetProperty(self.UpdateButton, xpProperty_Enabled, 1)
-					self.setInfoMessage("!!! New version is available: v"+str(logincheck.getElementsByTagName('notok')[0].firstChild.data),
+				print "[XFSE|Nfo] Login was not successful"
+				if(logincheck.getElementsByTagName('response')[0].firstChild.nodeName=="error"):
+					print "[XFSE|Nfo] Invalid script"
+					XPSetWidgetDescriptor(self.ServerResponseCaption, "Error!")
+					self.setInfoMessage(logincheck.getElementsByTagName('error')[0].firstChild.data,
 										"",
 										"",
 										"",
 										"red")
 				else:
-					print "[XFSE|Nfo] Invalid account"
-					XPSetWidgetDescriptor(self.ServerResponseCaption, "Invalid account!")
-					self.setInfoMessage("Invalid account!",
-										"",
-										"",
-										"",
-										"red")
+					if(logincheck.getElementsByTagName('response')[0].firstChild.nodeName=="notok"):
+						print "[XFSE|Nfo] New version avail"
+						XPSetWidgetDescriptor(self.ServerResponseCaption, "Update available!")
+						XPSetWidgetProperty(self.UpdateButton, xpProperty_Enabled, 1)
+						self.setInfoMessage("!!! New version is available: v"+str(logincheck.getElementsByTagName('notok')[0].firstChild.data),
+											"",
+											"",
+											"",
+											"red")
+					else:
+						print "[XFSE|Nfo] Invalid account"
+						XPSetWidgetDescriptor(self.ServerResponseCaption, "Invalid account!")
+						self.setInfoMessage("Invalid account!",
+											"",
+											"",
+											"",
+											"red")
 		return 1
 
 	#############################################################
