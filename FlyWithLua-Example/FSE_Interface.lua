@@ -19,11 +19,18 @@
 --
 --Version 1.0 2014-07-30 Teddii
 --	release
+--
+--Version 1.1 2014-08-09 Teddii
+--	Added code to handle new "fse_connected" dataref
+--	Added an option to always show the interface when "on ground"
 --________________________________________________________--
 
 --position of the interface
 XMin=50
-YMin=570
+YMin=570 --770 is also good
+
+--set to "false" if you want to see the interface only when hovering the mouse over it
+gShowAlwaysOnGround=true
 
 --________________________________________________________--
 --________________________________________________________--
@@ -35,9 +42,10 @@ do_every_draw("fse_interface_draw()")
 do_on_mouse_click("fse_interface_events()")
 --________________________________________________________--
 
-DataRef("fse_flying", "fse/status/flying")
-DataRef("fse_leasetime", "fse/status/leasetime")
-DataRef("fse_flighttime", "fse/status/flighttime")
+DataRef("fse_connected", 	"fse/status/connected")
+DataRef("fse_flying",       "fse/status/flying")
+DataRef("fse_leasetime",    "fse/status/leasetime")
+DataRef("fse_flighttime",   "fse/status/flighttime")
 --________________________________________________________--
 
 XMax=XMin+130
@@ -48,7 +56,9 @@ showCancelC = false
 function fse_interface_draw()
 	-- does we have to draw anything?
 	if MOUSE_X < XMin or MOUSE_X > XMax or MOUSE_Y < YMin or MOUSE_Y > YMax then
-		return
+		if(fse_flying==1 or gShowAlwaysOnGround==false)then
+			return
+		end
 	end
 	
 	-- init the graphics system
@@ -62,10 +72,14 @@ function fse_interface_draw()
 	graphics.draw_rectangle(0, 0, 40, 30)
 	
 	-- draw lines around the hole block
-	if(fse_flying==0) then
-		graphics.set_color(1, 0, 0, 0.5)
+	if(fse_connected==0) then
+		graphics.set_color(0.8, 0.8, 0.8, 0.5)
 	else
-		graphics.set_color(0, 1, 0, 0.5)
+		if(fse_flying==0) then
+			graphics.set_color(1, 0, 0, 0.5)
+		else
+			graphics.set_color(0, 1, 0, 0.5)
+		end
 	end
 	graphics.set_width(2)
 	graphics.draw_line(XMin, YMin, XMin, YMax)
@@ -80,27 +94,35 @@ function fse_interface_draw()
 
 	graphics.set_color(1, 1, 1, 0.8)
 
-	if(fse_flying==0) then
-		draw_string_Helvetica_10(XMin+5, YMin+67, "Status            : on ground")
+	if(fse_connected==0) then
+			draw_string_Helvetica_10(XMin+5, YMin+67, "Status            : offline")
 	else
-		draw_string_Helvetica_10(XMin+5, YMin+67, "Status            : airborne")
-		str=string.format("Flight Time      : %02i:%02i:%02i",math.floor(fse_flighttime/3600),math.floor((fse_flighttime%3600)/60),(fse_flighttime%60))
-		draw_string_Helvetica_10(XMin+5, YMin+52, str)
-		str=string.format("Lease Time left: %02i:%02i:%02i",math.floor(fse_leasetime/3600),math.floor((fse_leasetime%3600)/60),(fse_leasetime%60))
-		draw_string_Helvetica_10(XMin+5, YMin+37, str)
+		if(fse_flying==0) then
+			draw_string_Helvetica_10(XMin+5, YMin+67, "Status            : on ground")
+		else
+			draw_string_Helvetica_10(XMin+5, YMin+67, "Status            : airborne")
+			str=string.format("Flight Time      : %02i:%02i:%02i",math.floor(fse_flighttime/3600),math.floor((fse_flighttime%3600)/60),(fse_flighttime%60))
+			draw_string_Helvetica_10(XMin+5, YMin+52, str)
+			str=string.format("Lease Time left: %02i:%02i:%02i",math.floor(fse_leasetime/3600),math.floor((fse_leasetime%3600)/60),(fse_leasetime%60))
+			draw_string_Helvetica_10(XMin+5, YMin+37, str)
+		end
 	end
 	
-	if(fse_flying==0) then
-		draw_string_Helvetica_10(XMin+5, YMin+17, "Start")
-		draw_string_Helvetica_10(XMin+5, YMin+5,  "Flight")
-		showCancelC=false
+	if(fse_connected==0) then
+			draw_string_Helvetica_10(XMin+88, YMin+11, "LOGIN")
 	else
-		draw_string_Helvetica_10(XMin+45, YMin+17, "Cancel")
-		draw_string_Helvetica_10(XMin+45, YMin+5,  " ARM")
-	end
-	if(showCancelC) then
-		draw_string_Helvetica_10(XMin+85, YMin+17, "Cancel")
-		draw_string_Helvetica_10(XMin+85, YMin+5,  "Confirm")
+		if(fse_flying==0) then
+			draw_string_Helvetica_10(XMin+5, YMin+17, "Start")
+			draw_string_Helvetica_10(XMin+5, YMin+5,  "Flight")
+			showCancelC=false
+		else
+			draw_string_Helvetica_10(XMin+45, YMin+17, "Cancel")
+			draw_string_Helvetica_10(XMin+45, YMin+5,  " ARM")
+		end
+		if(showCancelC) then
+			draw_string_Helvetica_10(XMin+85, YMin+17, "Cancel")
+			draw_string_Helvetica_10(XMin+85, YMin+5,  "Confirm")
+		end
 	end
 
 end
@@ -122,7 +144,11 @@ function fse_interface_events()
 		RESUME_MOUSE_CLICK = false
 	end
 	if MOUSE_X > XMin+90 and MOUSE_X < XMin+120 and MOUSE_Y > YMin+5 and MOUSE_Y < YMin+25 then
-		command_once("fse/flight/cancelConfirm")
+		if(fse_connected==0) then
+			command_once("fse/server/connect")
+		else
+			command_once("fse/flight/cancelConfirm")
+		end
 		RESUME_MOUSE_CLICK = false
 	end
 	if MOUSE_X > XMin+5 and MOUSE_X < XMax-5 and MOUSE_Y > YMin+35 and MOUSE_Y < YMax-5 then

@@ -20,6 +20,9 @@
 --Version 1.1 2014-07-30 Teddii
 --	Changed text to ground/airborn 
 --	FlightTime/LeaseTime are now shown in hours:min[:secs]
+--
+--Version 1.2 2014-08-09 Teddii
+--	Added code to handle new "fse_connected" dataref
 --________________________________________________________--
 
 -- set the screen position for text messages
@@ -37,28 +40,38 @@ do_every_draw([[
 ]])
 --________________________________________________________--
 -- Import custom datarefs from X-Economy script
-DataRef("fse_flying", "fse/status/flying")
-DataRef("fse_leasetime", "fse/status/leasetime")
-DataRef("fse_flighttime", "fse/status/flighttime")
+DataRef("fse_connected", 	"fse/status/connected")
+DataRef("fse_flying",       "fse/status/flying")
+DataRef("fse_leasetime",    "fse/status/leasetime")
+DataRef("fse_flighttime",   "fse/status/flighttime")
 --________________________________________________________--
 
 function fse_info()
-	flightTimeString=string.format("%02i:%02i:%02i",math.floor(fse_flighttime/3600),math.floor((fse_flighttime%3600)/60),(fse_flighttime%60))
-	leaseTimeString=string.format("%02i:%02i",math.floor(fse_leasetime/3600),math.floor((fse_leasetime%3600)/60))
+	flightTimeString = string.format("%02i:%02i:%02i",math.floor(fse_flighttime/3600),math.floor((fse_flighttime%3600)/60),(fse_flighttime%60))
+	leaseTimeString  = string.format("%02i:%02i",     math.floor(fse_leasetime/3600), math.floor((fse_leasetime%3600)/60))
 
-
-	if(fse_flying) then
-		if(fse_flying == 0) then
+	if(fse_connected) then -- check if dataref is NIL
+		if(fse_connected==0) then
 			if(ColorTicker%2==0) then
-				draw_string(xPos, yPos, "FSE: on ground", "yellow")
+				draw_string(xPos, yPos, "FSE: offline", "yellow")
 			else
-				draw_string(xPos, yPos, "FSE: on ground", "blue")
+				draw_string(xPos, yPos, "FSE: offline", "red")
 			end
-		elseif(fse_flying == 1) then
-			draw_string(xPos, yPos, "FSE: airborne "..flightTimeString.." ("..leaseTimeString.." left)", "white")
 		else
-			draw_string(xPos, yPos, "FSE: ERROR "..fse_flying, "red") -- never happens - just in case ...
-		end
-	end
-end
+			if(fse_flying) then -- check if dataref is NIL
+				if(fse_flying == 0) then
+					if(ColorTicker%2==0) then
+						draw_string(xPos, yPos, "FSE: on ground", "yellow")
+					else
+						draw_string(xPos, yPos, "FSE: on ground", "blue")
+					end
+				elseif(fse_flying == 1) then
+					draw_string(xPos, yPos, "FSE: airborne "..flightTimeString.." ("..leaseTimeString.." left)", "white")
+				else
+					draw_string(xPos, yPos, "FSE: ERROR "..fse_flying, "red") -- never happens - just in case ...
+				end
+			end
+		end -- endif "connected"
+	end -- endif fse_connected exist
+end -- end function fse_info()
 --________________________________________________________--
