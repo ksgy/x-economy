@@ -61,12 +61,12 @@ function fse_info()
 			if(fse_flying) then -- check if dataref is NIL
 				if(fse_flying == 0) then
 					if(ColorTicker%2==0) then
-						draw_string(xPos, yPos, "FSE: on ground", "yellow")
+						draw_string(xPos, yPos, "FSE: departing", "yellow")
 					else
-						draw_string(xPos, yPos, "FSE: on ground", "blue")
+						draw_string(xPos, yPos, "FSE: departing", "blue")
 					end
 				elseif(fse_flying == 1) then
-					draw_string(xPos, yPos, "FSE: airborne "..flightTimeString.." ("..leaseTimeString.." left)", "white")
+					draw_string(xPos, yPos, "FSE: enroute "..flightTimeString.." ("..leaseTimeString.." left)", "white")
 				else
 					draw_string(xPos, yPos, "FSE: ERROR "..fse_flying, "red") -- never happens - just in case ...
 				end

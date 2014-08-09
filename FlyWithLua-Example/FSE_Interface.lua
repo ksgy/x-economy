@@ -22,7 +22,7 @@
 --
 --Version 1.1 2014-08-09 Teddii
 --	Added code to handle new "fse_connected" dataref
---	Added an option to always show the interface when "on ground"
+--	Added an option to always show the interface when "departing"
 --________________________________________________________--
 
 --position of the interface
@@ -98,9 +98,9 @@ function fse_interface_draw()
 			draw_string_Helvetica_10(XMin+5, YMin+67, "Status            : offline")
 	else
 		if(fse_flying==0) then
-			draw_string_Helvetica_10(XMin+5, YMin+67, "Status            : on ground")
+			draw_string_Helvetica_10(XMin+5, YMin+67, "Status            : departing")
 		else
-			draw_string_Helvetica_10(XMin+5, YMin+67, "Status            : airborne")
+			draw_string_Helvetica_10(XMin+5, YMin+67, "Status            : enroute")
 			str=string.format("Flight Time      : %02i:%02i:%02i",math.floor(fse_flighttime/3600),math.floor((fse_flighttime%3600)/60),(fse_flighttime%60))
 			draw_string_Helvetica_10(XMin+5, YMin+52, str)
 			str=string.format("Lease Time left: %02i:%02i:%02i",math.floor(fse_leasetime/3600),math.floor((fse_leasetime%3600)/60),(fse_leasetime%60))
