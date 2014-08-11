@@ -87,7 +87,7 @@ class PythonInterface:
 		self.Name = "X-Economy"
 		self.Sig =  "ksgy.Python.XFSEconomy"
 		self.Desc = "X-Economy - plugin for FSEconomy (www.fseconomy.net)"
-		self.VERSION="1.8.0 (RC15)"
+		self.VERSION="1.8.0"
 		self.MenuItem1 = 0			#Flag if main window has already been created
 		self.MenuItem2 = 0			#Flag if alias window has already been created
 		self.cancelCmdFlag = 0		#Flag if "cancelArm" Command has been called
@@ -582,14 +582,13 @@ class PythonInterface:
 	def XFSEpost(self, query):
 		f1 = open(os.path.join('Resources','plugins','PythonScripts','PI_xfse.py'), 'rb')
 		filemd5sum = hashlib.md5(f1.read()).hexdigest()
-		filemd5sum = "fee2295387604ee1c568c168aaefe0fb";
 		f1.close()
 
 		URL = 'http://www.fseconomy.net:81/fsagentx?md5sum='+filemd5sum+'&'+query;
-		print "[XFSE|dbg] Calling URL: "+URL
+		#print "[XFSE|dbg] Calling URL: "+URL
 		stuff = urlopen(URL).read()
 		stuff = stuff.replace('&',' and ')
-		print "[XFSE|dbg] Server retd: "+stuff
+		#print "[XFSE|dbg] Server retd: "+stuff
 		dom = minidom.parseString(stuff)
 		return dom
 
@@ -1162,7 +1161,7 @@ class PythonInterface:
 	#############################################################
 	## update function
 	def doUpdate(self):
-		_newClient = urlopen('https://raw.githubusercontent.com/ksgy/x-economy/master/PI_xfse.py').read()
+		_newClient = urlopen('http://www.fseconomy.net/download/client/xfse/PI_xfse.py').read()
 		_oldClient=open(os.path.join('Resources','plugins','PythonScripts','PI_xfse.py'), 'w')
 		_oldClient.write(_newClient)
 		_oldClient.close()
