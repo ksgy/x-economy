@@ -842,7 +842,7 @@ class PythonInterface:
 				_find=_err.find("is not compatible with your rented")
 				#break the "is not campatible" warning down into three lines with additional information
 				if _find>0:
-					self.setInfoMessage("Your flight has not been started: Aircraft aliases does not match!",
+					self.setInfoMessage("Your flight has not been started: Aircraft alias does not match!",
 										"FSE=["+_err[_find+35:]+"] X-Plane=["+_err[:_find-1]+"]",
 										"Pick an aircraft alias from the FSE website 'Home->Aircraft models .. Request aliases'",
 										"and enter it to 'Plugins->X-Economy->Set Aircraft alias' ... or ask the forum for help!",
