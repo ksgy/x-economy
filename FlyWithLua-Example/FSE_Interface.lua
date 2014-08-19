@@ -23,6 +23,9 @@
 --Version 1.1 2014-08-09 Teddii
 --	Added code to handle new "fse_connected" dataref
 --	Added an option to always show the interface when "departing"
+--
+--Version 1.2 2014-08-19 Teddii
+--	Removed the code fragment that draws a box in the lower left corner
 --________________________________________________________--
 
 --position of the interface
