@@ -68,9 +68,6 @@ function fse_interface_draw()
 	graphics.set_color(0, 0, 0, 0.5)
 	graphics.draw_rectangle(XMin, YMin, XMax, YMax)
 	
-	graphics.set_color(0, 0, 0, 0.5)
-	graphics.draw_rectangle(0, 0, 40, 30)
-	
 	-- draw lines around the hole block
 	if(fse_connected==0) then
 		graphics.set_color(0.8, 0.8, 0.8, 0.5)
