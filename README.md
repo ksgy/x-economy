@@ -6,17 +6,18 @@ The plugin uses Sandy Barbour's [Python interface](http://www.xpluginsdk.org/pyt
 
 # How to install
 
-1. Download [Python 2.7.x](http://www.python.org/download/releases/)
-2. Install Python 2.7.x (just follow the installer instructions)
-3. Download [Python interface](http://www.xpluginsdk.org/python_interface.htm)
-3. Unzip the contents of PythonInterface.zip into the "resources/plugins" folder of X-Plane
-4. Now you should have a "PythonInterface" folder in the "plugins" folder
-5. In the "plugins" folder create a "PythonScripts" folder
-6. Copy X-Economy (PI_xfse.py) to "folderPythonScripts"
-7. Start X-Plane
-8. From the "Plugins" menu choose "X-Economy"->"Open"
-9. Type your username and password, press "Start flight" (the weigth and fuel automatically set by the plugin!)
-10. You're ready for take off
+1. Download latest version of [X-Economy](https://github.com/ksgy/x-economy/releases)
+2. Download [Python 2.7.x](http://www.python.org/download/releases/)
+3. Install Python 2.7.x (just follow the installer instructions)
+4. Download [Python interface](http://www.xpluginsdk.org/python_interface.htm)
+5. Unzip the contents of PythonInterface.zip into the "resources/plugins" folder of X-Plane
+6. Now you should have a "PythonInterface" folder in the "plugins" folder
+7. In the "plugins" folder create a "PythonScripts" folder
+8. Copy X-Economy (PI_xfse.py) to "folderPythonScripts"
+9. Start X-Plane
+10. From the "Plugins" menu choose "X-Economy"->"Open"
+11. Type your username and password, press "Start flight" (the weigth and fuel automatically set by the plugin!)
+12. You're ready for take off
 
 ...and of course, it's highly recommended to read the [FSE Manual](https://sites.google.com/site/fseoperationsguide/) :)
 
