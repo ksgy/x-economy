@@ -29,6 +29,7 @@ class engine:
 		self.engineNumber=engineNumber
 		self.mixtureDamage=mixDamage
 		self.numberOfEngines=XPLMGetDatai(XPLMFindDataRef("sim/aircraft/engine/acf_num_engines"))
+		self.max_ITT=XPLMGetDataf(XPLMFindDataRef("sim/aircraft/engine/acf_max_ITT"))
 		print "[XFSE|dbg] Engine created #"+str(engineNumber)
 
 	def clearEng(self):
@@ -51,6 +52,11 @@ class engine:
 		_currentCHT=[]
 		XPLMGetDatavf(XPLMFindDataRef("sim/flightmodel/engine/ENGN_CHT_c"), _currentCHT, 0, self.numberOfEngines)
 		return _currentCHT[self.engineNumber]
+	
+	def currentITT(self):
+		_currentITT=[]
+		XPLMGetDatavf(XPLMFindDataRef("sim/flightmodel/engine/ENGN_ITT_c"), _currentITT, 0, self.numberOfEngines)
+		return _currentITT[self.engineNumber]
 
 	def currentMIX(self):
 		_currentMIX=[]
@@ -61,16 +67,29 @@ class engine:
 		_planeALT=XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/position/y_agl"))
 		return _planeALT*float(3.33)
 
-	def feed(self,sec,rpm,mix,cht,altitude):
-		if rpm>0:
-			self.runtime+=sec
-		if self.defaultcht>0:
-			_diff=abs(cht-self.defaultcht)/float(sec)
-			if _diff>0:
-				self.chtDamage+=_diff
-		self.defaultcht=cht
-		if (mix > 95 and altitude > 1000):
-			self.mixtureDamage += sec
+	def feed(self,sec,rpm,mix,cht,altitude,type,itt):
+		if type == 2 or type == 8: #Turboprop
+			if itt > self.max_ITT:
+				_diff=itt-self.max_ITT
+				self.chtDamage += _diff * 0.25
+			if mix > 0.25 and altitude < 1000:
+				self.mixtureDamage += 0.25
+		elif type == 4 or type == 5: #Jet
+			if itt > self.max_ITT:
+				_diff=itt-self.max_ITT
+				self.chtDamage += _diff * 0.25
+			if mix > 0.25 and altitude < 1000:
+				self.mixtureDamage += 0.25
+		else: #Reciprocating or other gets old method as default
+			if rpm>0:
+				self.runtime+=sec
+			if self.defaultcht>0:
+				_diff=abs(cht-self.defaultcht)/float(sec)
+				if _diff>0:
+					self.chtDamage+=_diff
+			self.defaultcht=cht
+			if (mix > 95 and altitude > 1000):
+				self.mixtureDamage += sec
 
 	def getData(self,flightTime):
 		return "&mixture"+str(self.engineNumber+1)+"="+str(self.mixtureDamage)+"&heat"+str(self.engineNumber+1)+"="+str(self.chtDamage)+"&time"+str(self.engineNumber+1)+"="+str(flightTime)
@@ -734,7 +753,7 @@ class PythonInterface:
 				# engine feed only when flying: pre-heat recommended on ground
 				for iengfeed in range(self.NumberOfEngines):
 					#sec,rpm,mix,cht,altitude):
-					self.ACEngine[iengfeed].feed(1,self.ACEngine[iengfeed].currentRPM(),self.ACEngine[iengfeed].currentMIX(),self.ACEngine[iengfeed].currentCHT(),self.ACEngine[iengfeed].planeALT())
+					self.ACEngine[iengfeed].feed(1,self.ACEngine[iengfeed].currentRPM(),self.ACEngine[iengfeed].currentMIX(),self.ACEngine[iengfeed].currentCHT(),self.ACEngine[iengfeed].planeALT(),self.ACEngine[iengfeed].engineType(),self.ACEngine[iengfeed].currentITT())
 
 			# arrive
 			else:
