@@ -71,13 +71,15 @@ class engine:
 		if type == 2 or type == 8: #Turboprop
 			if itt > self.max_ITT:
 				_diff=itt-self.max_ITT
-				self.chtDamage += _diff * 0.25
+				if _diff > 0:
+					self.chtDamage += _diff * 0.25
 			if mix > 0.25 and altitude < 1000:
 				self.mixtureDamage += 0.25
 		elif type == 4 or type == 5: #Jet
 			if itt > self.max_ITT:
 				_diff=itt-self.max_ITT
-				self.chtDamage += _diff * 0.25
+				if _diff > 0:
+					self.chtDamage += _diff * 0.25
 			if mix > 0.25 and altitude < 1000:
 				self.mixtureDamage += 0.25
 		else: #Reciprocating or other gets old method as default
