@@ -164,9 +164,9 @@ class PythonInterface:
 
 		#register Custom commands
 		self.CmdServerConn  = XPLMCreateCommand("fse/server/connect",      "Login to FSE Server")
-		self.CmdWindowShow  = XPLMCreateCommand("fse/window/show",         "show FSE window")
-		self.CmdWindowHide  = XPLMCreateCommand("fse/window/hide",         "hide FSE window")
-		self.CmdWindowTogl  = XPLMCreateCommand("fse/window/toggle",       "toggle FSE window")
+		self.CmdWindowShow  = XPLMCreateCommand("fse/window/show",         "Show FSE window")
+		self.CmdWindowHide  = XPLMCreateCommand("fse/window/hide",         "Hide FSE window")
+		self.CmdWindowTogl  = XPLMCreateCommand("fse/window/toggle",       "Toggle FSE window")
 		self.CmdFlightStart = XPLMCreateCommand("fse/flight/start",        "Start flight")
 		self.CmdFlightCArm  = XPLMCreateCommand("fse/flight/cancelArm",    "Cancel flight")
 		self.CmdFlightCCon  = XPLMCreateCommand("fse/flight/cancelConfirm","Cancel flight confirm")
@@ -500,7 +500,7 @@ class PythonInterface:
 				print "[XFSE|Nfo] BTN Start flying"
 				return self.startFly()
 			elif (inParam1 == self.CancelFlyButton):
-				print "[XFSE|Nfo] BTN canel flight"
+				print "[XFSE|Nfo] BTN Cancel flight"
 				self.cancelFlight("Flight cancelled","")
 			elif (inParam1 == self.UpdateButton):
 				self.doUpdate()
@@ -706,7 +706,7 @@ class PythonInterface:
 				self.gsCheat+=1
 
 			if self.gsCheat>10:
-				self.cancelFlight("Excessive time compression used. Your flight has been cancelled")
+				self.cancelFlight("Excessive time compression used. Your flight has been cancelled.")
 
 			isBrake=XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/controls/parkbrake"))
 			airspeed=XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/position/groundspeed"))
@@ -721,13 +721,13 @@ class PythonInterface:
 
 			# converting values to integer for comparison.  values after decimal were unrelaiable for this purpose.
 			if((int(_fueltotal) * 0.95) > int(self.checkfuel)):
-				self.cancelFlight("Airborn refueling not allowed. Flight cancelled","")
+				self.cancelFlight("Airborne refueling not allowed. Flight cancelled.","")
 
 			self.checkfuel=XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel_total"))
 
 			# flightTimer check
 			if(self.flightTimer < self.flightTimerLast):
-				self.cancelFlight("Aircraft changed or repositioned. Your flight has been cancelled","")
+				self.cancelFlight("Aircraft changed or repositioned. Your flight has been cancelled.","")
 			self.flightTimerLast=self.flightTimer
 
 			# flightTime calc
@@ -1098,7 +1098,7 @@ class PythonInterface:
 					
 			else:
 				print "[XFSE|Nfo] Lease time has ended, cancelling flight"
-				self.cancelFlight("Lease time has ended. Your flight has been cancelled. Sorry, you will have to re-fly this trip","")
+				self.cancelFlight("Lease time has ended. Your flight has been cancelled. Sorry, you will have to re-fly this trip.","")
 				
 	#############################################################
 	## Flight cancel function
