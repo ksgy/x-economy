@@ -87,13 +87,15 @@ class PythonInterface:
 		self.Name = "X-Economy"
 		self.Sig =  "ksgy.Python.XFSEconomy"
 		self.Desc = "X-Economy - plugin for FSEconomy (www.fseconomy.net)"
-		self.VERSION="1.8.0"
+		self.VERSION="1.8.1"
 		self.MenuItem1 = 0			#Flag if main window has already been created
 		self.MenuItem2 = 0			#Flag if alias window has already been created
 		self.cancelCmdFlag = 0		#Flag if "cancelArm" Command has been called
 
 		self.flightTimer = 0		#X-Plane's one second Ticker
 		self.flightTimerLast = 0	#last value of flightTimer to recognize a "flightTimer"-Reset
+
+		self.XPVer = 10				#X-Plane Version
 		
 		self.connected = 0			#Flag if logged on to the FSE server
 		self.flying = 0				#Flag if a Flight was started
@@ -104,10 +106,18 @@ class PythonInterface:
 		self.Transmitting = 0		#Counter for Transmit-Retries
 		self.leaseStart = 0			#Maximum lease time allowed to this rent
 		self.leaseTime = 0			#Actual lease time (time left)
-		self.CurrentTimeCaption=""
+		self.EndFlightCaption=""
 		self.LeaseCaption = 0
 		self.CurrentAircraft=""		#Name of the current aircraft
-
+		
+		self.endFlightTime = 60		#Seconds to pass to end   a flight
+		self.endPlaneAlt = 5		#Maximum height  to end   a flight
+		self.endPlaneSpd = 1		#Maximum speed   to end   a flight
+		self.startPlaneAlt = 20		#Minimum height  to start a flight
+		self.startPlaneSpd = 15		#Minimum speed   to start a flight
+		self.startPlaneRpm = 10		#Minimum RPM     to start a flight
+		self.startBrakeMax = 0.3	#Maximum Brake   to start a flight (mainly Carenado feature workaround)
+		
 		self.FuelTanks=[]
 		self.stPayload=0
 		self.stEq=0
@@ -138,6 +148,8 @@ class PythonInterface:
 		self.drConnected  = XPLMRegisterDataAccessor(self, "fse/status/connected",  xplmType_Int, 0, self.tempCB0, None, None, None, None, None, None, None, None, None, None, None, 0, 0)
 		self.tempCB1      = self.CallbackDatarefFlying
 		self.drFlying     = XPLMRegisterDataAccessor(self, "fse/status/flying",     xplmType_Int, 0, self.tempCB1, None, None, None, None, None, None, None, None, None, None, None, 0, 0)
+		self.tempCB4      = self.CallbackDatarefAirborne
+		self.drAirborne   = XPLMRegisterDataAccessor(self, "fse/status/airborne",   xplmType_Int, 0, self.tempCB4, None, None, None, None, None, None, None, None, None, None, None, 0, 0)
 		self.tempCB2      = self.CallbackDatarefLeasetime
 		self.drLeasetime  = XPLMRegisterDataAccessor(self, "fse/status/leasetime",  xplmType_Int, 0, self.tempCB2, None, None, None, None, None, None, None, None, None, None, None, 0, 0)
 		self.tempCB3      = self.CallbackDatarefFlighttime
@@ -190,6 +202,7 @@ class PythonInterface:
 
 		XPLMUnregisterDataAccessor(self, self.drConnected)
 		XPLMUnregisterDataAccessor(self, self.drFlying)
+		XPLMUnregisterDataAccessor(self, self.drAirborne)
 		XPLMUnregisterDataAccessor(self, self.drLeasetime)
 		XPLMUnregisterDataAccessor(self, self.drFlighttime)
 
@@ -218,6 +231,8 @@ class PythonInterface:
 		return self.connected
 	def CallbackDatarefFlying(self, inval):
 		return self.flying
+	def CallbackDatarefAirborne(self, inval):
+		return self.airborne
 	def CallbackDatarefLeasetime(self, inval):
 		return self.leaseTime
 	def CallbackDatarefFlighttime(self, inval):
@@ -340,7 +355,26 @@ class PythonInterface:
 		self.globalY=y
 		x2 = x + w
 		y2 = y - h
-		Buffer = "X-Economy v"+str(self.VERSION)
+		
+		#check X-Plane Version
+
+		# Solution 2
+		#XPlane9Date = "Jun  1 2011 23:51:55" # X-Plane 9.70
+		CompileDate = []
+		XPLMGetDatab(XPLMFindDataRef("sim/version/sim_build_string"), CompileDate, 0, 30)
+		if " 2011 " in str(CompileDate):
+			self.XPVer=9
+		else:
+			self.XPVer=10
+		
+		# Solution 2
+		#if not XPLMFindDataRef("sim/operation/failures/rel_batter0"):
+		#	self.XPVer=9
+		#else:
+		#	self.XPVer=10
+		
+		#Buffer = "X-Economy v"+str(self.VERSION)+" for X-Plane "+str(self.XPVer)+" ("+str(CompileDate)+")"
+		Buffer = "X-Economy v"+str(self.VERSION)+" for X-Plane "+str(self.XPVer)
 
 		# Create the Main Widget window
 		self.XFSEWidget = XPCreateWidget(x, y, x2, y2, 1, Buffer, 1,	0, xpWidgetClass_MainWindow)
@@ -357,10 +391,10 @@ class PythonInterface:
 					     self.XFSEWidget,
 					     xpWidgetClass_SubWindow)
 
-		# Set the style to sub window
+		# Set the style to sub window (Top Button Box)
 		XPSetWidgetProperty(XFSEWindow1, xpProperty_SubWindowType, xpSubWindowStyle_SubWindow)
 
-		# Create the Sub Widget2 window
+		# Create the Sub Widget2 window (Lower Box)
 		XFSEWindow2 = XPCreateWidget(x+10, y-100, x2-10, y2+10,
 					     1,		# Visible
 					     "",		# desc
@@ -368,10 +402,10 @@ class PythonInterface:
 					     self.XFSEWidget,
 					     xpWidgetClass_SubWindow)
 
-		# Set the style to sub window
+		# Set the style to sub window (Assignments Box)
 		XPSetWidgetProperty(XFSEWindow2, xpProperty_SubWindowType, xpSubWindowStyle_SubWindow)
 
-		XFSEWindow3 = XPCreateWidget(x+15, y-130, x2-35, y2+150,
+		XFSEWindow3 = XPCreateWidget(x+15, y-130, x2-15, y2+150,
 					     1,		# Visible
 					     "",		# desc
 					     0,		# root
@@ -424,13 +458,13 @@ class PythonInterface:
 		self.CargoCaption=[]
 
 		# AC reg
-		self.ACRegCaption = XPCreateWidget(x+20, y-340, x+50, y-360,1, "Aircraft registration: -", 0, self.XFSEWidget,xpWidgetClass_Caption)
+		self.ACRegCaption = XPCreateWidget(x+20, y-340, x+50, y-360,1, "", 0, self.XFSEWidget,xpWidgetClass_Caption)
 
 		# Lease expires
-		self.LeaseCaption = XPCreateWidget(x+20, y-360, x+50, y-380,1, "Lease time: -", 0, self.XFSEWidget,xpWidgetClass_Caption)
+		self.LeaseCaption = XPCreateWidget(x+20, y-360, x+50, y-380,1, "", 0, self.XFSEWidget,xpWidgetClass_Caption)
 
 		# Current flight time
-		self.CurrentTimeCaption = XPCreateWidget(x+20, y-330, x+50, y-450,1, "Current flight time: -", 0, self.XFSEWidget,xpWidgetClass_Caption)
+		self.EndFlightCaption = XPCreateWidget(x+20, y-330, x+50, y-450,1, "", 0, self.XFSEWidget,xpWidgetClass_Caption)
 		
 		# Start fly button
 		self.StartFlyButton = XPCreateWidget(x+360, y-40, x+450, y-60,
@@ -450,10 +484,6 @@ class PythonInterface:
 		self.XFSEHandlerCB = self.XFSEHandler
 		XPAddWidgetCallback(self, self.XFSEWidget, self.XFSEHandlerCB)
 
-		#scrollbar
-		self.XFSEScrollbar = XPCreateWidget(x+445, y-130, x2-10, y2+150, 1, "", 0,	self.XFSEWidget, xpWidgetClass_ScrollBar)
-		XPSetWidgetProperty(self.XFSEScrollbar,xpProperty_ScrollBarMin, 0)
-
 		#update button
 		self.UpdateButton = XPCreateWidget(x+270, y-40, x+350, y-60,1, "Update", 0, self.XFSEWidget,xpWidgetClass_Button)
 		XPSetWidgetProperty(self.UpdateButton, xpProperty_ButtonType, xpPushButton)
@@ -467,11 +497,6 @@ class PythonInterface:
 			if (self.MenuItem1 == 1):
 				XPHideWidget(self.XFSEWidget)
 				return 1
-
-		if(inMessage == xpMsg_ScrollBarSliderPositionChanged):
-			if (inParam1 == self.XFSEScrollbar):
-				_max_assignment = int(XPGetWidgetProperty(self.XFSEScrollbar,xpProperty_ScrollBarMax,0))
-				_scrpos = _max_assignment - int(XPGetWidgetProperty(self.XFSEScrollbar,xpProperty_ScrollBarSliderPosition,0))
 
 		if (inMessage == xpMsg_PushButtonPressed):
 			if (inParam1 == self.LoginButton):
@@ -619,56 +644,133 @@ class PythonInterface:
 
 		return _allenginestopped
 
-	def chkBrk(self,h,b):
-		if h == 1:
-			return True
-		if h == 0 and b < float(1.0):
-			return True
+	def setPlanePayload(self,payload):
+		XPLMSetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fixed"), float(payload))
 		
-		return False
+	#############################################################
+	## Instruments functions
+	def setInstrGPS(self,failmode):
+		self.setInstrGPS_Vx(failmode)
+		#if self.XPVer == 9:
+		#	self.setInstrGPS_V9(failmode)
+		#else:
+		#	self.setInstrGPS_V10(failmode)
 
-	def disableGPS(self):
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gps"),6)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gps2"),6)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g430_gps1"),6)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g430_gps2"),6)
+	def setInstrAP(self,failmode):
+		if self.XPVer == 9:
+			self.setInstrAP_V9(failmode)
+		else:
+			self.setInstrAP_V10(failmode)
 
-	def disableAP(self):
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_auto_servos"),6)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_otto"),6)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_servo_ailn"),6)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_servo_elev"),6)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_servo_rudd"),6)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_servo_thro"),6)
-
-	def disableIFR(self):
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gps"),6)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gps2"),6)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gls"),6)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_dme"),6)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_adf1"),6)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_adf2"),6)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_nav1"),6)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_nav2"),6)
+	def setInstrIFR(self,failmode):
+		if self.XPVer == 9:
+			self.setInstrIFR_V9(failmode)
+		else:
+			self.setInstrIFR_V10(failmode)
 
 	def enableAllInstruments(self):
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gps"),0)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gps2"),0)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g430_gps1"),0)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g430_gps2"),0)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_auto_servos"),0)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_otto"),0)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_servo_ailn"),0)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_servo_elev"),0)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_servo_rudd"),0)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_servo_thro"),0)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gls"),0)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_dme"),0)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_adf1"),0)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_adf2"),0)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_nav1"),0)
-		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_nav2"),0)
+		self.setInstrGPS(0) 	#remove failure modes
+		self.setInstrAP(0) 		#remove failure modes
+		self.setInstrIFR(0) 	#remove failure modes
 
+	#############################################################
+	## Instruments V10/V9
+	def setInstrGPS_Vx(self,failmode):
+		if(failmode!=0):
+			_source="sim/cockpit2/radios/actuators/HSI_source_select_pilot"
+			if(XPLMGetDatai(XPLMFindDataRef(_source))==2):
+				XPLMSetDatai(XPLMFindDataRef(_source),0)
+			_source="sim/cockpit2/radios/actuators/HSI_source_select_copilot"
+			if(XPLMGetDatai(XPLMFindDataRef(_source))==2):
+				XPLMSetDatai(XPLMFindDataRef(_source),0)
+			_source="sim/cockpit2/radios/actuators/RMI_source_select_pilot"
+			if(XPLMGetDatai(XPLMFindDataRef(_source))==2):
+				XPLMSetDatai(XPLMFindDataRef(_source),0)
+			_source="sim/cockpit2/radios/actuators/RMI_source_select_copilot"
+			if(XPLMGetDatai(XPLMFindDataRef(_source))==2):
+				XPLMSetDatai(XPLMFindDataRef(_source),0)
+		#XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gps"),int(failmode))
+		#XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gps2"),int(failmode))
+		#XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g430_gps1"),int(failmode))
+		#XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g430_gps2"),int(failmode))
+
+	#############################################################
+	## Instruments V10
+	def setInstrAP_V10(self,failmode):
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_auto_servos"),int(failmode))
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_otto"),int(failmode))
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_servo_ailn"),int(failmode))
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_servo_elev"),int(failmode))
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_servo_rudd"),int(failmode))
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_servo_thro"),int(failmode))
+
+	def setInstrIFR_V10(self,failmode):
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gps"),6)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gps2"),6) #wenn Config AP,GPS wird das hier trotzdem ausgemacht !? Kazan!
+
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gls"),int(failmode))
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_dme"),int(failmode))
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_adf1"),int(failmode))
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_adf2"),int(failmode))
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_nav1"),int(failmode))
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_nav2"),int(failmode))
+
+#	def enableAllInstruments_V10(self,failmode):
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gps"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gps2"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g430_gps1"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g430_gps2"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_auto_servos"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_otto"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_servo_ailn"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_servo_elev"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_servo_rudd"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_servo_thro"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gls"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_dme"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_adf1"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_adf2"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_nav1"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_nav2"),0)
+
+	#############################################################
+	## Instruments V9
+#	def setInstrGPS_V9(self,failmode):
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gps"),int(failmode))
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g_gps1"),int(failmode))
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g_gps2"),int(failmode))
+
+	def setInstrAP_V9(self,failmode):
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_otto"),int(failmode))
+
+	def setInstrIFR_V9(self,failmode):
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g_gs1"),int(failmode))
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g_gs2"),int(failmode))
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g_navrad1"),int(failmode))
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g_navrad2"),int(failmode))
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gls"),int(failmode))
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_dme"),int(failmode))
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_adf1"),int(failmode))
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_adf2"),int(failmode))
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_nav1"),int(failmode))
+		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_nav2"),int(failmode))
+
+#	def enableAllInstruments_V9(self):
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gps"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g_gps1"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g_gps2"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_otto"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g_gs1"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g_gs2"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g_navrad1"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_g_navrad2"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_gls"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_dme"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_adf1"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_adf2"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_nav1"),0)
+#		XPLMSetDatai(XPLMFindDataRef("sim/operation/failures/rel_nav2"),0) 
+		
 	#############################################################
 	## airborne/flight supervising function
 	def checkACState(self, elapsedMe, elapsedSim, counter, refcon):
@@ -689,14 +791,18 @@ class PythonInterface:
 			if self.gsCheat>10:
 				self.cancelFlight("Excessive time compression used. Your flight has been cancelled")
 
-			isBrake=XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/controls/parkbrake"))
-			airspeed=XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/position/groundspeed"))
-
 			if self.ACEngine[0].engineType() == 3 or self.ACEngine[0].engineType() == 5:
 				isHeli = 1
 			else:
 				isHeli = 0
 					  
+			if(isHeli == 0):
+				isBrake=XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/controls/parkbrake"))
+			else:
+				isBrake=float(XPLMGetDatai(XPLMFindDataRef("sim/cockpit2/switches/rotor_brake")))
+				
+			airspeed=XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/position/groundspeed"))
+
 			#fuel change check
 			_fueltotal=XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel_total"))
 
@@ -714,21 +820,75 @@ class PythonInterface:
 			# flightTime calc
 			self.flightTime=int( self.flightTimer - self.flightStart )
 			
-			if self.CurrentTimeCaption:
-				_currhours=self.flightTime/3600
-				_currmins=(self.flightTime-_currhours*3600)/60
-				XPSetWidgetDescriptor(self.CurrentTimeCaption, "Current flight time: "+str(_currhours)+" hours "+str(_currmins)+" mins")
-
 			# lease time calc
 			if self.leaseTime>0: 
 				self.leaseTime=int(self.leaseStart-self.flightTime)
+
+			# times output
 			if self.LeaseCaption:
+				_outtxt=""
+				
+				_currhours=self.flightTime/3600
+				_currmins=(self.flightTime-_currhours*3600)/60
+				_outtxt+="Current flight time: "+str(_currhours)+" hours "+str(_currmins)+" mins"
+				
 				_leasehours=self.leaseTime/3600
 				_leasemins=(self.leaseTime-_leasehours*3600)/60
-				XPSetWidgetDescriptor(self.LeaseCaption, "Lease time left: "+str(_leasehours)+" hours "+str(_leasemins)+" mins" )
+				_outtxt+=" - Lease time left: "+str(_leasehours)+" hours "+str(_leasemins)+" mins"
 				
-			if(self.chkBrk(isHeli,isBrake) and self.ACEngine[0].currentRPM()>float(10.0) and airspeed>float(5) and self.ACEngine[0].planeALT()>10):
+				XPSetWidgetDescriptor(self.LeaseCaption, _outtxt)
 
+			# Status
+			if self.EndFlightCaption:
+				if(self.airborne==0):
+					_outtxt = "To go airborne:"
+					if(self.ACEngine[0].currentRPM()<float(self.startPlaneRpm)):
+						_outtxt += " RPM>"+str(self.startPlaneRpm)+"/min"
+
+					if(self.ACEngine[0].planeALT()<self.startPlaneAlt):
+						_outtxt += " ALT>"+str(self.startPlaneAlt)+"ft"
+
+					if(airspeed<self.startPlaneSpd):
+						_outtxt += " SPD>"+str(self.startPlaneSpd)+"kts"
+
+					if(isHeli == 0):
+						_brk="PrkBrk"
+					else:
+						_brk="RotBrk"
+					if(isBrake>self.startBrakeMax):
+						_outtxt += " "+_brk+"<="+str(int(self.startBrakeMax*100))+"%"
+					if(isBrake>self.startBrakeMax and isBrake<1.0):
+						_outtxt += " ("+_brk+"="+str(int(isBrake*100))+"%)"
+				
+				else:
+					_outtxt = "To end flight:"
+					
+					if(self.flightTime<self.endFlightTime):
+						_outtxt += " FltTim>"+str(self.endFlightTime)+"s"
+
+					if(self.ACEngine[0].planeALT()>self.endPlaneAlt):
+						_outtxt += " ALT<"+str(self.endPlaneAlt)+"ft"
+
+					if(airspeed>self.endPlaneSpd):
+						_outtxt += " SPD<"+str(self.endPlaneSpd)+"kts"
+
+					for ienga in range(self.NumberOfEngines):
+						if self.ACEngine[ienga].isEngRun() > 0:
+							_outtxt += " Eng"+str(ienga+1)
+
+					if(isHeli == 0):
+						_brk="PrkBrk"
+					else:
+						_brk="RotBrk"
+					if(isBrake!=1.0):
+						_outtxt += " "+_brk+"=100%"
+					if(isBrake>0 and isBrake<1.0):
+						_outtxt += " ("+_brk+"="+str(int(isBrake*100))+"%)"
+
+				XPSetWidgetDescriptor(self.EndFlightCaption, _outtxt)
+				
+			# go airborne
+			if(isBrake<=self.startBrakeMax and self.ACEngine[0].currentRPM()>float(self.startPlaneRpm) and airspeed>float(self.startPlaneSpd) and self.ACEngine[0].planeALT()>self.startPlaneAlt):
 				self.airborne = 1
 				self.Transmitting = 0
 				# engine feed only when flying: pre-heat recommended on ground
@@ -739,45 +899,45 @@ class PythonInterface:
 			# arrive
 			else:
 				if(self.airborne == 1):
-					if(self.flightTime>60 and self.isAllEngineStopped() and self.ACEngine[0].planeALT()<50):
-						if(isHeli == 1):
-							if(airspeed<float(5)):
-								print "[XFSE|Nfo] Heli arrived"
-								self.arrive()
-						else:
-							if(isBrake==1.0 and airspeed<float(30)):
-								print "[XFSE|Nfo] Plane arrived"
-								self.arrive()
+					if(self.flightTime>self.endFlightTime and self.isAllEngineStopped() and self.ACEngine[0].planeALT()<self.endPlaneAlt):
+						if(isBrake==1.0 and airspeed<float(self.endPlaneSpd)):
+							print "[XFSE|Nfo] Aircraft (Plane or Heli) arrived"
+							self.arrive()
 
+			#Instruments
 			if(self.stEq=="0"):
-				self.disableAP()
-				self.disableGPS()
-				self.disableIFR()
+				self.setInstrAP(6)
+				self.setInstrGPS(6)
+				self.setInstrIFR(6)
 
 			if(self.stEq=="1"):
-				self.disableAP()
-				self.disableGPS()
+				self.setInstrAP(6)
+				self.setInstrGPS(6)
 
 			if(self.stEq=="2"):
-				self.disableAP()
-				self.disableIFR()
+				self.setInstrAP(6)
+				self.setInstrIFR(6)
 
 			if(self.stEq=="4"):
-				self.disableGPS()
-				self.disableIFR()
+				self.setInstrGPS(6)
+				self.setInstrIFR(6)
 
 			if(self.stEq=="3"):
-				self.disableAP()
+				self.setInstrAP(6)
 
 			if(self.stEq=="5"):
-				self.disableGPS()
+				self.setInstrGPS(6)
 
 			if(self.stEq=="6"):
-				self.disableIFR()
+				self.setInstrIFR(6)
 
-			XPLMSetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fixed"),float(self.stPayload))
+			self.setPlanePayload(self.stPayload)
 
-		return float(1) # call again in one second
+			
+		if(self.flying==1 and self.airborne==1 and self.Transmitting>1):
+			return float(150) # unanswered call of the website lasts 2:15, call again in 150 seconds for repeating transmission
+		else:
+			return float(1) # call again in one second
 
 	#############################################################
 	## airborne/flight supervising function
@@ -842,7 +1002,7 @@ class PythonInterface:
 				_find=_err.find("is not compatible with your rented")
 				#break the "is not campatible" warning down into three lines with additional information
 				if _find>0:
-					self.setInfoMessage("Your flight has not been started: Aircraft aliases does not match!",
+					self.setInfoMessage("Your flight has not been started: Aircraft alias does not match!",
 										"FSE=["+_err[_find+35:]+"] X-Plane=["+_err[:_find-1]+"]",
 										"Pick an aircraft alias from the FSE website 'Home->Aircraft models .. Request aliases'",
 										"and enter it to 'Plugins->X-Economy->Set Aircraft alias' ... or ask the forum for help!",
@@ -860,11 +1020,17 @@ class PythonInterface:
 				stFrom="-"
 				stTo="-"
 				stCargo="-"
-
-				_assignments=0
-				for iAssignment in range(len(startFlight.getElementsByTagName('assignment'))):
-					self.addAssignment(iAssignment,str(startFlight.getElementsByTagName('from')[iAssignment].firstChild.data),str(startFlight.getElementsByTagName('to')[iAssignment].firstChild.data),str(startFlight.getElementsByTagName('cargo')[iAssignment].firstChild.data))
-					_assignments=_assignments+1
+				_aMax=14 #+1 = toal 15
+				
+				_assignments=len(startFlight.getElementsByTagName('assignment'))
+				for iAssignment in range(_assignments):
+					if iAssignment<_aMax: 			# Assignments 1 - 14
+						self.addAssignment(iAssignment,str(startFlight.getElementsByTagName('from')[iAssignment].firstChild.data),str(startFlight.getElementsByTagName('to')[iAssignment].firstChild.data),str(startFlight.getElementsByTagName('cargo')[iAssignment].firstChild.data))
+					if iAssignment==_aMax:
+						if _assignments == _aMax+1: 	# Assignments 15 is the last one
+							self.addAssignment(iAssignment,str(startFlight.getElementsByTagName('from')[iAssignment].firstChild.data),str(startFlight.getElementsByTagName('to')[iAssignment].firstChild.data),str(startFlight.getElementsByTagName('cargo')[iAssignment].firstChild.data))
+						else: 						# at least 2 more won't fit in the list
+							self.addAssignment(iAssignment,"[...]","[...]",str((_assignments-_aMax))+ " additional assignments")
 
 				Accounting=startFlight.getElementsByTagName('accounting')[0].firstChild.data
 
@@ -890,35 +1056,38 @@ class PythonInterface:
 				stACReg=startFlight.getElementsByTagName('registration')[0].firstChild.data
 				stLE=startFlight.getElementsByTagName('leaseExpires')[0].firstChild.data
 				XPSetWidgetDescriptor(self.ACRegCaption, "Aircraft registration: "+str(stACReg)+str(stEquipment))
+		
 				self.leaseTime = 0
 				self.leaseTime=int(stLE)
 				self.leaseStart=int(stLE)
-				XPSetWidgetDescriptor(self.LeaseCaption, "Lease time: "+str(int(stLE)/3600)+" hours")
+				#XPSetWidgetDescriptor(self.LeaseCaption, "Lease time: "+str(int(stLE)/3600)+" hours")
 
 				# set weight and fuel
 				self.stPayload=startFlight.getElementsByTagName('payloadWeight')[0].firstChild.data
 				stFuel=startFlight.getElementsByTagName('fuel')[0].firstChild.data
-				XPLMSetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fixed"),float(self.stPayload))
+				self.setPlanePayload(self.stPayload)
 				astFuel=stFuel.split(' ')
-				self.FuelTanks=[]
 
+				self.FuelTanks=[]
 				totalFuel=float(0)
 				for iFuel in range(len(astFuel)-1):
 					totalFuel+=float(astFuel[iFuel])
-
 					if float(astFuel[iFuel])>float(0):
 						self.FuelTanks.append(1)
 					else:
 						self.FuelTanks.append(0)
-
-				num_tanks = XPLMGetDatai(XPLMFindDataRef("sim/aircraft/overflow/acf_num_tanks")) # thx sandy barbour :)
+						
+				num_tanks = 9 	#XPLMGetDatai(XPLMFindDataRef("sim/aircraft/overflow/acf_num_tanks")) # thx sandy barbour :)
+								#num_tanks can be set to "max", all not used tanks will have a value of 0 as multiplier
+								
 				currentFuel = totalFuel*float(2.68735)
-				_it=0
+
 				_fuelPerTanks = []
+				_currentRatio = []
+				XPLMGetDatavf(XPLMFindDataRef("sim/aircraft/overflow/acf_tank_rat"),_currentRatio,0,num_tanks)
 				for _it in range(num_tanks):
-					_currentRatio = []
-					XPLMGetDatavf(XPLMFindDataRef("sim/aircraft/overflow/acf_tank_rat"),_currentRatio,0,num_tanks)
 					_fuelPerTanks.append(currentFuel*_currentRatio[_it])								
+
 				XPLMSetDatavf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel"),_fuelPerTanks,0,num_tanks)
 
 				self.checkfuel=XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel_total"))
@@ -943,7 +1112,7 @@ class PythonInterface:
 									str(_assignments)+" assignments loaded.",
 									"Enjoy your flight!",
 									"green")
-				
+									
 				for iengclear in range(self.NumberOfEngines):
 					self.ACEngine[iengclear].clearEng()
 
@@ -958,6 +1127,9 @@ class PythonInterface:
 
 				print "[XFSE|Nfo] Flight has arrived"
 
+				#XPSetWidgetDescriptor(self.LeaseCaption, "")
+				XPSetWidgetDescriptor(self.EndFlightCaption, "Flight has ended ...")
+				
 				self.Transmitting=self.Transmitting+1
 				XPSetWidgetDescriptor(self.ServerResponseCaption, "Transmitting (Try "+str(self.Transmitting)+") ...")
 				if (self.Transmitting==2): #open the window to let the user know that 1st try failed
@@ -970,9 +1142,11 @@ class PythonInterface:
 
 				_totalfuel = 0
 
+				num_tanks = 9 	#XPLMGetDatai(XPLMFindDataRef("sim/aircraft/overflow/acf_num_tanks")) # thx sandy barbour :)
+								#num_tanks can be set to "max", all not used tanks will have a value of 0 as multiplier
 				_fueltanksQTY = []
-				XPLMGetDatavf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel"),_fueltanksQTY,0,XPLMGetDatai(XPLMFindDataRef("sim/aircraft/overflow/acf_num_tanks")))
-				for _iTotFuel in range(XPLMGetDatai(XPLMFindDataRef("sim/aircraft/overflow/acf_num_tanks"))):
+				XPLMGetDatavf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel"),_fueltanksQTY,0,num_tanks)
+				for _iTotFuel in range(num_tanks):
 					_totalfuel = _totalfuel + _fueltanksQTY[_iTotFuel]/float(2.68735)
 
 				print "[XFSE|Nfo] Fuel at arrival: "+str(_totalfuel)
@@ -1051,10 +1225,18 @@ class PythonInterface:
 						_currmins=(self.flightTime-_currhours*3600)/60
 						_fuelTotalGal=int((XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel_total")) * 0.3721)+0.5)
 
+						_currhourstot=str(_currhours)
+						if(_currhours<10):
+							_currhourstot="0"+_currhourstot
+
+						_currminstot=str(_currmins)
+						if(_currmins<10):
+							_currminstot="0"+_currminstot
+						
 						self.setInfoMessage(_errA[0],
 											_errA[1],
 											_errA[2],
-											"Total Flight time "+str(_currhours)+":"+str(_currmins)+". Still "+str(_fuelTotalGal)+" gallons of fuel onboard.",
+											"Total Flight time "+_currhourstot+":"+_currminstot+". Still "+str(_fuelTotalGal)+" gallons of fuel onboard.",
 											"green")
 					else:
 						self.setInfoMessage(_errA[0],
@@ -1066,12 +1248,15 @@ class PythonInterface:
 					XPSetWidgetProperty(self.StartFlyButton, xpProperty_Enabled, 1)
 					XPSetWidgetProperty(self.CancelFlyButton, xpProperty_Enabled, 0)
 					self.flying=0
+					self.airborne=0
 					self.Arrived=1
 
 					print "[XFSE|dbg] Flight time reset. All instruments enabled"
 					self.flightStart=0
 					self.flightTime=0
 					self.enableAllInstruments()
+					self.stPayload=0
+					self.setPlanePayload(self.stPayload)
 
 					XPSetWidgetDescriptor(self.ServerResponseCaption, "Transmitting (Try "+str(self.Transmitting)+") ... OK")
 				else:
@@ -1089,6 +1274,7 @@ class PythonInterface:
 		else:
 			print "[XFSE|dbg] Cancel flight function"
 			self.flying=0
+			self.airborne=0
 
 			cancelflight=self.XFSEpost("user="+self.userstr+"&pass="+self.passstr+"&action=cancel")
 			if (cancelflight.getElementsByTagName('response')[0].firstChild.nodeName=="ok"):
@@ -1101,7 +1287,11 @@ class PythonInterface:
 									"red")
 				
 			print "[XFSE|dbg] Cancel flight1: [" + message + "][" + message2 + "]"
+			XPSetWidgetDescriptor(self.LeaseCaption, "")
+			XPSetWidgetDescriptor(self.EndFlightCaption, "")
 			self.enableAllInstruments()
+			self.stPayload=0
+			self.setPlanePayload(self.stPayload)
 
 	#############################################################
 	## login function
@@ -1192,12 +1382,5 @@ class PythonInterface:
 		XPSetWidgetDescriptor(self.FromCaption[aIndex], str(aFrom))
 		XPSetWidgetDescriptor(self.ToCaption[aIndex], str(aTo))
 		XPSetWidgetDescriptor(self.CargoCaption[aIndex], str(aCargo))
-
-		if(aIndex>4):
-			# set scrollbar
-			XPSetWidgetProperty(self.XFSEScrollbar,xpProperty_ScrollBarMin, 0)
-			XPSetWidgetProperty(self.XFSEScrollbar,xpProperty_ScrollBarMax, aIndex+1)
-			XPSetWidgetProperty(self.XFSEScrollbar,xpProperty_ScrollBarSliderPosition, aIndex+1)
-		#print "[XFSE|dbg] Assignments added #"+str(aIndex)
 
 	#The End
