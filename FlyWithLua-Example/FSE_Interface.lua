@@ -26,29 +26,57 @@
 --
 --Version 1.2 2014-08-19 Teddii
 --	Removed the code fragment that draws a box in the lower left corner
+--
+--Version 1.3 2014-11-30 Teddii
+--	Added code to handle new "fse_airborne" dataref
+--
+--Version 1.4 2014-12-19 Teddii
+--	Added code to show a warning, if gear is not compatible with new XFSE client
+--
+--Version 1.5 2014-12-20 Teddii
+--	Added menu entry "plugins/FlyWithLua_Macros/Always show FSE-Interface on ground" to switch visibility on/off
+--
+--Version 1.6 2015-01-09 Teddii
+--	Added some code to work around the DataRef Update issue
+--  Added menu entry to switch off window while "departing"
+--	Removed code to show a warning, if gear is not compatible with new XFSE client
 --________________________________________________________--
 
 --position of the interface
-XMin=50
-YMin=570 --770 is also good
+local XMin=50
+local YMin=770 --770 is also good
+
+--set your lease time left warning in seconds
+local LeaseTimeLeftWarnSecs=1800
 
 --set to "false" if you want to see the interface only when hovering the mouse over it
-gShowAlwaysOnGround=true
+gAlwaysShowFseInterfaceOnGround=true
+gAlwaysShowFseInterfaceDeparting=true
 
 --________________________________________________________--
 --________________________________________________________--
 --________________________________________________________--
+--________________________________________________________--
+--________________________________________________________--
+--________________________________________________________--
+--________________________________________________________--
+--________________________________________________________--
+--________________________________________________________--
+
+add_macro("Always show FSE-Interface when on ground", "gAlwaysShowFseInterfaceOnGround=true", "gAlwaysShowFseInterfaceOnGround=false", "activate")
+add_macro("Always show FSE-Interface when departing", "gAlwaysShowFseInterfaceDeparting=true", "gAlwaysShowFseInterfaceDeparting=false", "activate")
+--________________________________________________________--
+
 
 require "graphics"
-
-do_every_draw("fse_interface_draw()")
-do_on_mouse_click("fse_interface_events()")
 --________________________________________________________--
 
 DataRef("fse_connected", 	"fse/status/connected")
 DataRef("fse_flying",       "fse/status/flying")
+DataRef("fse_airborne",     "fse/status/airborne")
 DataRef("fse_leasetime",    "fse/status/leasetime")
 DataRef("fse_flighttime",   "fse/status/flighttime")
+dataref("datRAlt", 			"sim/cockpit2/gauges/indicators/radio_altimeter_height_ft_pilot")
 --________________________________________________________--
 
 XMax=XMin+130
@@ -56,28 +84,64 @@ YMax=YMin+80
 showCancelC = false
 --________________________________________________________--
 
-function fse_interface_draw()
+-- it seems that the datarefs are only read when there's a do_every_frame() or do_often() action defined!
+-- work around: this adds a dummy handler that does basically nothing, but triggers reading of the DRs
+do_every_frame("fse_interface_do()")
+function fse_interface_do() end
+
+--________________________________________________________--
+
+do_on_mouse_click("fse_interface_events()")
+do_every_draw("fse_interface_info()")
+--________________________________________________________--
+
+local mouseHover
+function fse_interface_info()
+	mouseHover=true
 	-- does we have to draw anything?
 	if MOUSE_X < XMin or MOUSE_X > XMax or MOUSE_Y < YMin or MOUSE_Y > YMax then
-		if(fse_flying==1 or gShowAlwaysOnGround==false)then
+		mouseHover=false
+	end
+
+	if(mouseHover==false) then
+		if(fse_flying==0 and gAlwaysShowFseInterfaceOnGround==false) then
+			return
+		end
+		if(fse_flying==1 and gAlwaysShowFseInterfaceDeparting==false) then
+			return
+		end
+		if(fse_airborne==1 and fse_leasetime>=LeaseTimeLeftWarnSecs) then
 			return
 		end
 	end
 	
 	-- init the graphics system
 	XPLMSetGraphicsState(0,0,0,1,1,0,0)
-	
+
 	-- draw transparent backgroud
 	graphics.set_color(0, 0, 0, 0.5)
 	graphics.draw_rectangle(XMin, YMin, XMax, YMax)
+
+	--if(datOnGround~=0) then
+	--	draw_string_Helvetica_10(XMin+5, YMin+85, "Plane is ON GROUND!")
+	--end
 	
 	-- draw lines around the hole block
 	if(fse_connected==0) then
-		graphics.set_color(0.8, 0.8, 0.8, 0.5)
+		graphics.set_color(0.8, 0.8, 0.8, 0.5) 	 --grey
 	else
 		if(fse_flying==0) then
-			graphics.set_color(1, 0, 0, 0.5)
-		else
+			graphics.set_color(1, 0, 0, 0.5) 	 --red
+		elseif(fse_airborne==0) then -- fse_flying==0 AND fse_airborne==0
+			if(datRAlt<20)
+			then
+				graphics.set_color(1, 1, 0, 0.5) --yellow
+			else
+				graphics.set_color(1, 0, 0, 0.5) --red
+			end
+		elseif(fse_leasetime<LeaseTimeLeftWarnSecs) then -- fse_flying==0 AND fse_airborne==0
+			graphics.set_color(1, 1, 0, 0.5) 	 --yellow
+		else -- flying and airborne =1
 			graphics.set_color(0, 1, 0, 0.5)
 		end
 	end
@@ -95,12 +159,16 @@ function fse_interface_draw()
 	graphics.set_color(1, 1, 1, 0.8)
 
 	if(fse_connected==0) then
-			draw_string_Helvetica_10(XMin+5, YMin+67, "Status            : offline")
+			draw_string_Helvetica_10(XMin+5, YMin+67,     "Status            : offline")
 	else
 		if(fse_flying==0) then
-			draw_string_Helvetica_10(XMin+5, YMin+67, "Status            : departing")
+			draw_string_Helvetica_10(XMin+5, YMin+67,     "Status            : on ground")
 		else
-			draw_string_Helvetica_10(XMin+5, YMin+67, "Status            : enroute")
+			if(fse_airborne==0) then
+				draw_string_Helvetica_10(XMin+5, YMin+67, "Status            : departing")
+			else
+				draw_string_Helvetica_10(XMin+5, YMin+67, "Status            : enroute")
+			end
 			str=string.format("Flight Time      : %02i:%02i:%02i",math.floor(fse_flighttime/3600),math.floor((fse_flighttime%3600)/60),(fse_flighttime%60))
 			draw_string_Helvetica_10(XMin+5, YMin+52, str)
 			str=string.format("Lease Time left: %02i:%02i:%02i",math.floor(fse_leasetime/3600),math.floor((fse_leasetime%3600)/60),(fse_leasetime%60))
