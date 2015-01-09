@@ -38,9 +38,14 @@ class engine:
 		self.chtDamage=0
 		self.mixtureDamage=0
 
+	def propType(self):
+		_propType=[]
+		XPLMGetDatavi(XPLMFindDataRef("sim/aircraft/prop/acf_prop_type"), _propType, 0, self.numberOfEngines)
+		return _propType[self.engineNumber]
+	
 	def engineType(self):
 		_engineType=[]
-		XPLMGetDatavi(XPLMFindDataRef("sim/aircraft/prop/acf_prop_type"), _engineType, 0, self.numberOfEngines)
+		XPLMGetDatavi(XPLMFindDataRef("sim/aircraft/prop/acf_en_type"), _engineType, 0, self.numberOfEngines)
 		return _engineType[self.engineNumber]
 
 	def currentRPM(self):
@@ -711,7 +716,7 @@ class PythonInterface:
 			isBrake=XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/controls/parkbrake"))
 			airspeed=XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/position/groundspeed"))
 
-			if self.ACEngine[0].engineType() == 3 or self.ACEngine[0].engineType() == 5:
+			if self.ACEngine[0].propType() == 3 or self.ACEngine[0].propType() == 5:
 				isHeli = 1
 			else:
 				isHeli = 0
