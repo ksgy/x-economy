@@ -29,6 +29,7 @@ class engine:
 		self.engineNumber=engineNumber
 		self.mixtureDamage=mixDamage
 		self.numberOfEngines=XPLMGetDatai(XPLMFindDataRef("sim/aircraft/engine/acf_num_engines"))
+		self.max_ITT=XPLMGetDataf(XPLMFindDataRef("sim/aircraft/engine/acf_max_ITT"))
 		print "[XFSE|dbg] Engine created #"+str(engineNumber)
 
 	def clearEng(self):
@@ -37,9 +38,14 @@ class engine:
 		self.chtDamage=0
 		self.mixtureDamage=0
 
+	def propType(self):
+		_propType=[]
+		XPLMGetDatavi(XPLMFindDataRef("sim/aircraft/prop/acf_prop_type"), _propType, 0, self.numberOfEngines)
+		return _propType[self.engineNumber]
+	
 	def engineType(self):
 		_engineType=[]
-		XPLMGetDatavi(XPLMFindDataRef("sim/aircraft/prop/acf_prop_type"), _engineType, 0, self.numberOfEngines)
+		XPLMGetDatavi(XPLMFindDataRef("sim/aircraft/prop/acf_en_type"), _engineType, 0, self.numberOfEngines)
 		return _engineType[self.engineNumber]
 
 	def currentRPM(self):
@@ -51,6 +57,11 @@ class engine:
 		_currentCHT=[]
 		XPLMGetDatavf(XPLMFindDataRef("sim/flightmodel/engine/ENGN_CHT_c"), _currentCHT, 0, self.numberOfEngines)
 		return _currentCHT[self.engineNumber]
+	
+	def currentITT(self):
+		_currentITT=[]
+		XPLMGetDatavf(XPLMFindDataRef("sim/flightmodel/engine/ENGN_ITT_c"), _currentITT, 0, self.numberOfEngines)
+		return _currentITT[self.engineNumber]
 
 	def currentMIX(self):
 		_currentMIX=[]
@@ -61,16 +72,29 @@ class engine:
 		_planeALT=XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/position/y_agl"))
 		return _planeALT*float(3.33)
 
-	def feed(self,sec,rpm,mix,cht,altitude):
-		if rpm>0:
-			self.runtime+=sec
-		if self.defaultcht>0:
-			_diff=abs(cht-self.defaultcht)/float(sec)
-			if _diff>0:
-				self.chtDamage+=_diff
-		self.defaultcht=cht
-		if (mix > 95 and altitude > 1000):
-			self.mixtureDamage += sec
+	def feed(self,sec,rpm,mix,cht,altitude,type,itt):
+		if type == 2 or type == 8: #Turboprop
+			if itt > self.max_ITT:
+				_diff=itt-self.max_ITT
+				self.chtDamage += _diff * 0.25
+			if mix > 0.25 and altitude < 1000: #Low altitude contamination
+				self.mixtureDamage += 0.25
+		elif type == 4 or type == 5: #Jet
+			if itt > self.max_ITT:
+				_diff=itt-self.max_ITT
+				self.chtDamage += _diff * 0.25
+			if mix > 0.25 and altitude < 1000: #Low altitude contamination
+				self.mixtureDamage += 0.25
+		else: #Reciprocating or other gets old method as default
+			if rpm>0:
+				self.runtime+=sec
+			if self.defaultcht>0:
+				_diff=abs(cht-self.defaultcht)/float(sec)
+				if _diff>0:
+					self.chtDamage+=_diff
+			self.defaultcht=cht
+			if (mix > 95 and altitude > 1000):
+				self.mixtureDamage += sec
 
 	def getData(self,flightTime):
 		return "&mixture"+str(self.engineNumber+1)+"="+str(self.mixtureDamage)+"&heat"+str(self.engineNumber+1)+"="+str(self.chtDamage)+"&time"+str(self.engineNumber+1)+"="+str(flightTime)
@@ -145,9 +169,9 @@ class PythonInterface:
 
 		#register Custom commands
 		self.CmdServerConn  = XPLMCreateCommand("fse/server/connect",      "Login to FSE Server")
-		self.CmdWindowShow  = XPLMCreateCommand("fse/window/show",         "show FSE window")
-		self.CmdWindowHide  = XPLMCreateCommand("fse/window/hide",         "hide FSE window")
-		self.CmdWindowTogl  = XPLMCreateCommand("fse/window/toggle",       "toggle FSE window")
+		self.CmdWindowShow  = XPLMCreateCommand("fse/window/show",         "Show FSE window")
+		self.CmdWindowHide  = XPLMCreateCommand("fse/window/hide",         "Hide FSE window")
+		self.CmdWindowTogl  = XPLMCreateCommand("fse/window/toggle",       "Toggle FSE window")
 		self.CmdFlightStart = XPLMCreateCommand("fse/flight/start",        "Start flight")
 		self.CmdFlightCArm  = XPLMCreateCommand("fse/flight/cancelArm",    "Cancel flight")
 		self.CmdFlightCCon  = XPLMCreateCommand("fse/flight/cancelConfirm","Cancel flight confirm")
@@ -481,7 +505,7 @@ class PythonInterface:
 				print "[XFSE|Nfo] BTN Start flying"
 				return self.startFly()
 			elif (inParam1 == self.CancelFlyButton):
-				print "[XFSE|Nfo] BTN canel flight"
+				print "[XFSE|Nfo] BTN Cancel flight"
 				self.cancelFlight("Flight cancelled","")
 			elif (inParam1 == self.UpdateButton):
 				self.doUpdate()
@@ -687,12 +711,12 @@ class PythonInterface:
 				self.gsCheat+=1
 
 			if self.gsCheat>10:
-				self.cancelFlight("Excessive time compression used. Your flight has been cancelled")
+				self.cancelFlight("Excessive time compression used. Your flight has been cancelled.")
 
 			isBrake=XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/controls/parkbrake"))
 			airspeed=XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/position/groundspeed"))
 
-			if self.ACEngine[0].engineType() == 3 or self.ACEngine[0].engineType() == 5:
+			if self.ACEngine[0].propType() == 3 or self.ACEngine[0].propType() == 5:
 				isHeli = 1
 			else:
 				isHeli = 0
@@ -702,13 +726,13 @@ class PythonInterface:
 
 			# converting values to integer for comparison.  values after decimal were unrelaiable for this purpose.
 			if((int(_fueltotal) * 0.95) > int(self.checkfuel)):
-				self.cancelFlight("Airborn refueling not allowed. Flight cancelled","")
+				self.cancelFlight("Airborne refueling not allowed. Flight cancelled.","")
 
 			self.checkfuel=XPLMGetDataf(XPLMFindDataRef("sim/flightmodel/weight/m_fuel_total"))
 
 			# flightTimer check
 			if(self.flightTimer < self.flightTimerLast):
-				self.cancelFlight("Aircraft changed or repositioned. Your flight has been cancelled","")
+				self.cancelFlight("Aircraft changed or repositioned. Your flight has been cancelled.","")
 			self.flightTimerLast=self.flightTimer
 
 			# flightTime calc
@@ -734,7 +758,7 @@ class PythonInterface:
 				# engine feed only when flying: pre-heat recommended on ground
 				for iengfeed in range(self.NumberOfEngines):
 					#sec,rpm,mix,cht,altitude):
-					self.ACEngine[iengfeed].feed(1,self.ACEngine[iengfeed].currentRPM(),self.ACEngine[iengfeed].currentMIX(),self.ACEngine[iengfeed].currentCHT(),self.ACEngine[iengfeed].planeALT())
+					self.ACEngine[iengfeed].feed(1,self.ACEngine[iengfeed].currentRPM(),self.ACEngine[iengfeed].currentMIX(),self.ACEngine[iengfeed].currentCHT(),self.ACEngine[iengfeed].planeALT(),self.ACEngine[iengfeed].engineType(),self.ACEngine[iengfeed].currentITT())
 
 			# arrive
 			else:
@@ -1079,7 +1103,7 @@ class PythonInterface:
 					
 			else:
 				print "[XFSE|Nfo] Lease time has ended, cancelling flight"
-				self.cancelFlight("Lease time has ended. Your flight has been cancelled. Sorry, you will have to re-fly this trip","")
+				self.cancelFlight("Lease time has ended. Your flight has been cancelled. Sorry, you will have to re-fly this trip.","")
 				
 	#############################################################
 	## Flight cancel function
