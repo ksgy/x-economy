@@ -3,6 +3,9 @@
 This is a plugin for [X-Plane](http://x-plane.com), to connect and use [FSEconomy](http://www.fseconomy.net/).
 The plugin uses Sandy Barbour's [Python interface](http://www.xpluginsdk.org/python_interface.htm), so plugin may work on Mac, Linux and Windows too.
 
+# Download
+[Latest release](https://github.com/ksgy/x-economy/releases)
+Scroll down to the end of the Changelog and click on [Source code] button.
 
 # How to install
 
